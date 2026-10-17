@@ -61,9 +61,9 @@ FOR %%A IN (%ARG%) DO (
 
 REM pre-build checks
 
-CALL "update_revision.cmd"
+CALL "%~dp0update_revision.cmd"
 
-IF EXIST "environments.bat" CALL "environments.bat"
+IF EXIST "%~dp0environments.bat" CALL "%~dp0environments.bat"
 
 IF NOT DEFINED MPCBE_MINGW GOTO MissingVar
 IF NOT DEFINED MPCBE_MSYS  GOTO MissingVar
