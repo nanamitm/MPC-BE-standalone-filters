@@ -1,5 +1,5 @@
 /*
- * (C) 2006-2024 see Authors.txt
+ * (C) 2006-2026 see Authors.txt
  *
  * This file is part of MPC-BE.
  *
@@ -25,10 +25,11 @@
 class CGolombBuffer
 {
 public:
-	CGolombBuffer(const BYTE* pBuffer, int nSize, const bool bRemoveMpegEscapes = false);
+	CGolombBuffer(const BYTE* pBuffer, const int nSize, const bool bRemoveMpegEscapes = false);
 	~CGolombBuffer() = default;
 
-	UINT64       BitRead(const int nBits, const bool bPeek = false);
+	UINT64       BitRead(const int nBits);
+	UINT64       BitPeak(const int nBits); // the data will be returned, and the buffer not advanced
 	UINT64       UExpGolombRead();
 	unsigned int UintGolombRead();
 	INT64        SExpGolombRead();
@@ -47,12 +48,12 @@ public:
 
 	void         SetSize(const int nValue) { m_nSize = nValue; }
 	int          GetSize() const { return m_nSize; }
-	int          RemainingSize() const { return m_nSize - m_nBitPos; }
+	int          RemainingSize() const { return m_nSize - m_nPos; }
 	int          BitsLeft() const { return 8 * RemainingSize() + m_bitlen; }
-	bool         IsEOF() const { return !m_bitlen && m_nBitPos >= m_nSize; }
+	bool         IsEOF() const { return !m_bitlen && m_nPos >= m_nSize; }
 	int          GetPos() const;
 	int          GetBitsPos() const;
-	const BYTE*  GetBufferPos() const { return m_pBuffer + m_nBitPos; }
+	const BYTE*  GetBufferPos() const { return m_pBuffer + m_nPos; }
 
 	void         SkipBytes(const int nCount);
 	void         Seek(const int nPos);
@@ -62,9 +63,10 @@ public:
 private :
 	const BYTE*  m_pBuffer;
 	int          m_nSize;
-	int          m_nBitPos;
-	int          m_bitlen;
+	int          m_nPos;
+
 	INT64        m_bitbuff;
+	int          m_bitlen;
 
 	std::unique_ptr<BYTE[]> m_pTmpBuffer;
 	bool         m_bRemoveMpegEscapes;

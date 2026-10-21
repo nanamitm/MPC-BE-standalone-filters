@@ -40,19 +40,17 @@ inline constexpr MPCPixelFormat YUV444_16[] = {PixFmt_YUV444P16, PixFmt_Y416, Pi
 inline constexpr MPCPixelFormat RGB_8[]     = {PixFmt_RGB32, PixFmt_RGB48, PixFmt_None};
 inline constexpr MPCPixelFormat RGB_16[]    = {PixFmt_RGB48, PixFmt_RGB32, PixFmt_None};
 
-struct SW_OUT_FMT {
-	VFormatDesc desc;
-	const int					bpp;
+struct OutputFormatDesc {
+	VFormatDesc					vdesc;
 	const int					planeWidth[4];
 	const int					planeHeight[4];
 	const enum AVPixelFormat	av_pix_fmt;
-	const uint8_t				chroma_w;
-	const uint8_t				chroma_h;
+	const int					bpp;
 };
 
-extern const SW_OUT_FMT s_sw_formats[];
+extern const OutputFormatDesc s_outputFormats[];
 
-const SW_OUT_FMT* GetSWOF(int pixfmt);
+const OutputFormatDesc* GetOutputFormatDesc(const int pixfmt);
 
 LPCWSTR GetChromaSubsamplingStr(enum AVPixelFormat av_pix_fmt);
 int GetLumaBits(enum AVPixelFormat av_pix_fmt);
@@ -123,16 +121,16 @@ private:
 
 	int				m_dstRGBRange = 0;
 
-	int				m_dstStride   = 0;
-	int				m_planeHeight = 0;
-	int				m_OutHeight   = 0;
+	unsigned		m_dstStrides[4] = {};
+	unsigned		m_dstHeights[4] = {};
+	bool			m_dstBottomUp = false;
 
 	void*			m_pTempBuffer = nullptr;
 	size_t			m_nTempBufferSize = 0;
 
 	int				m_nCPUFlag = 0;
 
-	unsigned		m_RequiredAlignment = 0;
+	unsigned		m_RequiredAlignment = 0; // in bytes
 
 	int				m_NumThreads = 1;
 
@@ -146,7 +144,6 @@ private:
 	int m_swsHeight = 0;
 
 	RGBCoeffs *m_rgbCoeffs = nullptr;
-	BOOL m_bRGBConverter   = FALSE;
 	BOOL m_bRGBConvInit    = FALSE;
 
 	// [out32][dithermode][ycgco][format][shift]
@@ -203,21 +200,18 @@ public:
 	CFormatConverter();
 	~CFormatConverter();
 
+	void UpdateInput(const AVFrame* pFrame);
 	void UpdateOutput(const GUID& subtype, const BITMAPINFOHEADER* pBIH);
 	void SetOptions(const int rgblevels);
 
 	MPCPixelFormat GetOutPixFormat() { return m_out_pixfmt; }
 
 	bool Converting(BYTE* dst, const AVFrame* pFrame);
-	bool Converting(BYTE* dst, const AVFrame* pFrame, const uint8_t* (&srcData)[4], const ptrdiff_t (&srcStride)[4]);
+	bool Converting(BYTE* dst, const uint8_t* (&srcData)[4], const ptrdiff_t (&srcStride)[4]);
 
 	void SetDirect(const BOOL bDirect) { m_bDirect = bDirect; }
 
 	void Cleanup();
-
-	bool FormatChanged(const AVPixelFormat fmt1, const AVPixelFormat fmt2) const;
-
-	int GetDstStride() const { return m_dstStride; }
 
 	void Clear();
 };

@@ -25,6 +25,8 @@
 #include "DSUtil/CPUInfo.h"
 #include "DSUtil/Utils.h"
 
+#define ENABLE_OPTIMIZED_FUNCTIONS 1
+
 #pragma warning(push)
 #pragma warning(disable: 4005)
 #pragma warning(disable: 5033)
@@ -42,41 +44,41 @@ FrameProps::FrameProps()
 {
 }
 
-const SW_OUT_FMT s_sw_formats[] = {
-	//name             bpp planeWidth planeHeight  av_pix_fmt   chroma_w chroma_h
+const OutputFormatDesc s_outputFormats[] = {
+	//name             planeWidth planeHeight  av_pix_fmt          bpp
 	// YUV 8 bit
-	{ VFormat_NV12,      12, {1,1},   {1,2},   AV_PIX_FMT_NV12,        1, 1 }, // PixFmt_NV12
-	{ VFormat_YV12,      12, {1,2,2}, {1,2,2}, AV_PIX_FMT_YUV420P,     1, 1 }, // PixFmt_YV12
-	{ VFormat_YUY2,      16, {1},     {1},     AV_PIX_FMT_YUYV422,     1, 0 }, // PixFmt_YUY2
-	{ VFormat_YV16,      16, {1,2,2}, {1,1,1}, AV_PIX_FMT_YUV422P,     1, 0 }, // PixFmt_YV16
-	{ VFormat_AYUV,      32, {1},     {1},     AV_PIX_FMT_YUV444P,     0, 0 }, // PixFmt_AYUV
-	{ VFormat_YV24,      24, {1,1,1}, {1,1,1}, AV_PIX_FMT_YUV444P,     0, 0 }, // PixFmt_YV24
+	{ VFormat_NV12,      {1,1},   {1,2},   AV_PIX_FMT_NV12,        12 }, // PixFmt_NV12
+	{ VFormat_YV12,      {1,2,2}, {1,2,2}, AV_PIX_FMT_YUV420P,     12 }, // PixFmt_YV12
+	{ VFormat_YUY2,      {1},     {1},     AV_PIX_FMT_YUYV422,     16 }, // PixFmt_YUY2
+	{ VFormat_YV16,      {1,2,2}, {1,1,1}, AV_PIX_FMT_YUV422P,     16 }, // PixFmt_YV16
+	{ VFormat_AYUV,      {1},     {1},     AV_PIX_FMT_YUV444P,     32 }, // PixFmt_AYUV
+	{ VFormat_YV24,      {1,1,1}, {1,1,1}, AV_PIX_FMT_YUV444P,     24 }, // PixFmt_YV24
 	// YUV 10 bit
-	{ VFormat_P010,      24, {1,1},   {1,2},   AV_PIX_FMT_YUV420P16LE, 1, 1 }, // PixFmt_P010
-	{ VFormat_P210,      32, {1,1},   {1,1},   AV_PIX_FMT_YUV422P16LE, 1, 0 }, // PixFmt_P210
-	{ VFormat_Y410,      32, {1},     {1},     AV_PIX_FMT_YUV444P10LE, 0, 0 }, // PixFmt_Y410
+	{ VFormat_P010,      {1,1},   {1,2},   AV_PIX_FMT_YUV420P16LE, 24 }, // PixFmt_P010
+	{ VFormat_P210,      {1,1},   {1,1},   AV_PIX_FMT_YUV422P16LE, 32 }, // PixFmt_P210
+	{ VFormat_Y410,      {1},     {1},     AV_PIX_FMT_YUV444P10LE, 32 }, // PixFmt_Y410
 	// YUV 16 bit
-	{ VFormat_P016,      24, {1,1},   {1,2},   AV_PIX_FMT_YUV420P16LE, 1, 1 }, // PixFmt_P016
-	{ VFormat_P216,      32, {1,1},   {1,1},   AV_PIX_FMT_YUV422P16LE, 1, 0 }, // PixFmt_P216
-	{ VFormat_Y416,      64, {1},     {1},     AV_PIX_FMT_YUV444P16LE, 0, 0 }, // PixFmt_Y416
-	{ VFormat_YUV444P16, 48, {1,1,1}, {1,1,1}, AV_PIX_FMT_YUV444P16LE, 0, 0 }, // PixFmt_YUV444P16
+	{ VFormat_P016,      {1,1},   {1,2},   AV_PIX_FMT_YUV420P16LE, 24 }, // PixFmt_P016
+	{ VFormat_P216,      {1,1},   {1,1},   AV_PIX_FMT_YUV422P16LE, 32 }, // PixFmt_P216
+	{ VFormat_Y416,      {1},     {1},     AV_PIX_FMT_YUV444P16LE, 64 }, // PixFmt_Y416
+	{ VFormat_YUV444P16, {1,1,1}, {1,1,1}, AV_PIX_FMT_YUV444P16LE, 48 }, // PixFmt_YUV444P16
 	// RGB
-	{ VFormat_RGB32,     32, {1},     {1},     AV_PIX_FMT_BGRA,        0, 0 }, // PixFmt_RGB32
-	{ VFormat_RGB48,     48, {1},     {1},     AV_PIX_FMT_RGB48LE,     0, 0 }, // PixFmt_RGB48
+	{ VFormat_RGB32,     {1},     {1},     AV_PIX_FMT_BGRA,        32 }, // PixFmt_RGB32
+	{ VFormat_RGB48,     {1},     {1},     AV_PIX_FMT_RGB48LE,     48 }, // PixFmt_RGB48
 	// PS:
 	// AV_PIX_FMT_YUV444P not equal to AYUV, but is used as an intermediate format.
 	// AV_PIX_FMT_YUV420P16LE not equal to P010, but is used as an intermediate format.
 	// AV_PIX_FMT_YUV422P16LE not equal to P210, but is used as an intermediate format.
 };
 
-static_assert(std::size(s_sw_formats) == PixFmt_count);
+static_assert(std::size(s_outputFormats) == PixFmt_count);
 
-const SW_OUT_FMT* GetSWOF(const int pixfmt)
+const OutputFormatDesc* GetOutputFormatDesc(const int pixfmt)
 {
 	if (pixfmt < 0 || pixfmt >= PixFmt_count) {
 		return nullptr;
 	}
-	return &s_sw_formats[pixfmt];
+	return &s_outputFormats[pixfmt];
 }
 
 LPCWSTR GetChromaSubsamplingStr(const AVPixelFormat av_pix_fmt)
@@ -113,7 +115,7 @@ int GetLumaBits(const AVPixelFormat av_pix_fmt)
 static MPCPixelFormat GetPixFormat(const GUID& subtype)
 {
 	for (int i = 0; i < PixFmt_count; i++) {
-		if (*s_sw_formats[i].desc.subtype == subtype) {
+		if (*s_outputFormats[i].vdesc.subtype == subtype) {
 			return (MPCPixelFormat)i;
 		}
 	}
@@ -124,7 +126,7 @@ static MPCPixelFormat GetPixFormat(const GUID& subtype)
 static MPCPixelFormat GetPixFormat(const AVPixelFormat av_pix_fmt)
 {
 	for (int i = 0; i < PixFmt_count; i++) {
-		if (s_sw_formats[i].av_pix_fmt == av_pix_fmt) {
+		if (s_outputFormats[i].av_pix_fmt == av_pix_fmt) {
 			return (MPCPixelFormat)i;
 		}
 	}
@@ -135,7 +137,7 @@ static MPCPixelFormat GetPixFormat(const AVPixelFormat av_pix_fmt)
 static MPCPixelFormat GetPixFormat(const DWORD biCompression)
 {
 	for (int i = 0; i < PixFmt_count; i++) {
-		if (s_sw_formats[i].desc.fourcc == biCompression) {
+		if (s_outputFormats[i].vdesc.fourcc == biCompression) {
 			return (MPCPixelFormat)i;
 		}
 	}
@@ -227,8 +229,6 @@ MPCPixFmtType GetPixFmtType(const AVPixelFormat av_pix_fmt, const AVPixFmtDescri
 
 CFormatConverter::CFormatConverter()
 {
-	ASSERT(PixFmt_count == std::size(s_sw_formats));
-
 	m_NumThreads = std::clamp(CPUInfo::GetProcessorNumber() / 2, 1uL, 8uL);
 }
 
@@ -261,7 +261,7 @@ bool CFormatConverter::InitSWSContext()
 		return false;
 	}
 
-	const SW_OUT_FMT& swof = s_sw_formats[m_out_pixfmt];
+	auto& outputFormat = s_outputFormats[m_out_pixfmt];
 
 	m_pSwsContext = sws_getContext(
 						m_FProps.width,
@@ -269,7 +269,7 @@ bool CFormatConverter::InitSWSContext()
 						m_FProps.avpixfmt,
 						m_FProps.width,
 						m_FProps.height,
-						swof.av_pix_fmt,
+						outputFormat.av_pix_fmt,
 						SWS_BILINEAR | SWS_FULL_CHR_H_INT | SWS_PRINT_INFO,
 						nullptr,
 						nullptr,
@@ -306,16 +306,17 @@ void CFormatConverter::UpdateSWSContext()
 
 void CFormatConverter::SetConvertFunc()
 {
+	if (m_FProps.avpixfmt == AV_PIX_FMT_NONE || m_out_pixfmt == PixFmt_None) {
+		m_pConvertFn = nullptr;
+		return;
+	}
+
 #ifdef DEBUG
-	{
-		auto swof = GetSWOF(m_out_pixfmt);
-		if (m_FProps.avpfdesc && swof) {
-			DLog(L"CFormatConverter::SetConvertFunc : %hs -> %s", m_FProps.avpfdesc->name, swof->desc.name);
-		}
+	if (auto outputFormat = GetOutputFormatDesc(m_out_pixfmt); outputFormat && m_FProps.avpfdesc) {
+		DLog(L"CFormatConverter::SetConvertFunc : %hs -> %s", m_FProps.avpfdesc->name, outputFormat->vdesc.name);
 	}
 #endif // DEBUG
 
-	m_pConvertFn = nullptr;
 	m_RequiredAlignment = 16;
 
 	// optimized direct function
@@ -353,10 +354,10 @@ void CFormatConverter::SetConvertFunc()
 		else if (m_FProps.avpixfmt == AV_PIX_FMT_VUYX && m_out_pixfmt == PixFmt_AYUV) {
 			m_pConvertFn = &CFormatConverter::plane_copy_direct_sse4;
 		}
-		else if (m_FProps.avpixfmt == AV_PIX_FMT_XV30 && m_out_pixfmt == PixFmt_Y410) {
+		else if (m_FProps.avpixfmt == AV_PIX_FMT_XV30LE && m_out_pixfmt == PixFmt_Y410) {
 			m_pConvertFn = &CFormatConverter::plane_copy_direct_sse4;
 		}
-		else if (m_FProps.avpixfmt == AV_PIX_FMT_XV36 && m_out_pixfmt == PixFmt_Y416) {
+		else if (m_FProps.avpixfmt == AV_PIX_FMT_XV36LE && m_out_pixfmt == PixFmt_Y416) {
 			m_pConvertFn = &CFormatConverter::plane_copy_direct_sse4;
 		}
 	}
@@ -366,6 +367,7 @@ void CFormatConverter::SetConvertFunc()
 		return;
 	}
 
+#if ENABLE_OPTIMIZED_FUNCTIONS
 	// optimized function
 	switch (m_out_pixfmt) {
 	case PixFmt_NV12:
@@ -408,13 +410,13 @@ void CFormatConverter::SetConvertFunc()
 		}
 		else if (m_FProps.pftype == PFType_YUV422Px) {
 			m_pConvertFn = &CFormatConverter::convert_yuv422_yuy2_uyvy_dither_le;
-			m_RequiredAlignment = 8;
+			m_RequiredAlignment = 16; // 8 pixel alignment
 		}
 		else if (m_FProps.pftype == PFType_YUV420
 			|| (m_FProps.pftype == PFType_YUV420Px && m_FProps.lumabits <= 14)
 			|| m_FProps.pftype == PFType_NV12) {
 			m_pConvertFn = &CFormatConverter::convert_yuv420_yuy2;
-			m_RequiredAlignment = 8;
+			m_RequiredAlignment = 16; // 8 pixel alignment
 		}
 		break;
 	case PixFmt_YV16:
@@ -465,14 +467,14 @@ void CFormatConverter::SetConvertFunc()
 	case PixFmt_P216:
 		if (m_FProps.pftype == PFType_Y21x && CPUInfo::HaveSSE4()) {
 			m_pConvertFn = &CFormatConverter::convert_y210_p210_sse4;
-			m_RequiredAlignment = 4;
+			m_RequiredAlignment = 16; // 4 pixel alignment
 		}
 		else if (m_FProps.pftype == PFType_YUV422Px) {
 			m_pConvertFn = &CFormatConverter::convert_yuv420_px1x_le;
 		}
 		break;
 	case PixFmt_Y410:
-		if (m_FProps.avpixfmt == AV_PIX_FMT_XV30) {
+		if (m_FProps.avpixfmt == AV_PIX_FMT_XV30LE) {
 			m_pConvertFn = &CFormatConverter::plane_copy_sse2;
 			m_RequiredAlignment = 0;
 		}
@@ -481,7 +483,7 @@ void CFormatConverter::SetConvertFunc()
 		}
 		break;
 	case PixFmt_Y416:
-		if (m_FProps.avpixfmt == AV_PIX_FMT_XV36) {
+		if (m_FProps.avpixfmt == AV_PIX_FMT_XV36LE) {
 			m_pConvertFn = &CFormatConverter::plane_copy_sse2;
 			m_RequiredAlignment = 0;
 		}
@@ -497,7 +499,7 @@ void CFormatConverter::SetConvertFunc()
 		case PFType_NV12:
 		case PFType_P01x:
 			m_pConvertFn = &CFormatConverter::convert_yuv_rgb;
-			m_RequiredAlignment = 4;
+			m_RequiredAlignment = 16; // 4 pixel alignment
 		}
 		break;
 	}
@@ -506,23 +508,67 @@ void CFormatConverter::SetConvertFunc()
 		DLog("CFormatConverter::SetConvertFunc : optimized function has been selected");
 		return;
 	}
+#endif
 
 	m_pConvertFn = &CFormatConverter::ConvertGeneric;
 
 	DLog("CFormatConverter::SetConvertFunc : swscale has been selected");
 }
 
+void CFormatConverter::UpdateInput(const AVFrame* pFrame)
+{
+	if (m_FProps.avpixfmt != (AVPixelFormat)pFrame->format || pFrame->width != m_FProps.width || pFrame->height != m_FProps.height) {
+		// update the basic properties
+		m_FProps.avpixfmt = (AVPixelFormat)pFrame->format;
+		m_FProps.width = pFrame->width;
+		m_FProps.height = pFrame->height;
+
+		// update the additional properties (updated only when changing basic properties)
+		m_FProps.avpfdesc = av_pix_fmt_desc_get(m_FProps.avpixfmt);
+		m_FProps.lumabits = GetLumaBits(m_FProps.avpfdesc);
+		m_FProps.pftype   = GetPixFmtType(m_FProps.avpixfmt, m_FProps.avpfdesc);
+		m_FProps.colorspace = pFrame->colorspace;
+		m_FProps.colorrange = pFrame->color_range;
+
+		Cleanup();
+	}
+
+	if (!m_pConvertFn) {
+		SetConvertFunc();
+	}
+}
+
 void CFormatConverter::UpdateOutput(const GUID& subtype, const BITMAPINFOHEADER* pBIH)
 {
 	MPCPixelFormat out_pixfmt = GetPixFormat(subtype);
 	if (out_pixfmt != m_out_pixfmt) {
-		Cleanup();
 		m_out_pixfmt = out_pixfmt;
+		Cleanup();
 	}
 
-	m_dstStride   = pBIH->biWidth;
-	m_planeHeight = abs(pBIH->biHeight);
-	m_OutHeight   = pBIH->biHeight;
+	if (!m_pConvertFn) {
+		SetConvertFunc();
+	}
+
+	auto outputFormat = GetOutputFormatDesc(m_out_pixfmt);
+	if (outputFormat) {
+		const unsigned widthBytes = pBIH->biWidth * outputFormat->vdesc.packsize;
+		const unsigned height     = abs(pBIH->biHeight);
+
+		for (size_t i = 0; i < 4; i++) {
+			auto& planeWidth  = outputFormat->planeWidth[i];
+			auto& planeHeight = outputFormat->planeHeight[i];
+
+			m_dstStrides[i] = (planeWidth) ? widthBytes / planeWidth : 0;
+			m_dstHeights[i] = (planeHeight) ? height / planeHeight : 0;
+		}
+	}
+	else {
+		std::fill(std::begin(m_dstStrides), std::end(m_dstStrides), 0);
+		std::fill(std::begin(m_dstHeights), std::end(m_dstHeights), 0);
+	}
+
+	m_dstBottomUp = (pBIH->biCompression == BI_RGB && pBIH->biHeight > 0);
 }
 
 void CFormatConverter::SetOptions(const int rgblevels)
@@ -538,6 +584,8 @@ bool CFormatConverter::Converting(BYTE* dst, const AVFrame* pFrame)
 		return false;
 	}
 
+	UpdateInput(pFrame);
+
 	ptrdiff_t srcStride[4];
 	for (int i = 0; i < 4; i++) {
 		srcStride[i] = pFrame->linesize[i];
@@ -548,51 +596,35 @@ bool CFormatConverter::Converting(BYTE* dst, const AVFrame* pFrame)
 		srcData[i] = pFrame->data[i];
 	}
 
-	return Converting(dst, pFrame, srcData, srcStride);
+	return Converting(dst, srcData, srcStride);
 }
 
-bool CFormatConverter::Converting(BYTE* dst, const AVFrame* pFrame, const uint8_t* (&srcData)[4], const ptrdiff_t(&srcStride)[4])
+bool CFormatConverter::Converting(BYTE* dst, const uint8_t* (&srcData)[4], const ptrdiff_t(&srcStride)[4])
 {
-	if (!dst || !pFrame || !srcData[0]) {
+	if (!dst || !srcData[0]) {
 		DLog(L"FormatConverter::Converting() - null dst or frame plane, skipping");
 		return false;
 	}
 
-	if (FormatChanged(m_FProps.avpixfmt, (AVPixelFormat)pFrame->format)
-			|| pFrame->width != m_FProps.width || pFrame->height != m_FProps.height) {
-		// update the basic properties
-		m_FProps.avpixfmt   = (AVPixelFormat)pFrame->format;
-		m_FProps.width      = pFrame->width;
-		m_FProps.height     = pFrame->height;
-
-		// update the additional properties (updated only when changing basic properties)
-		m_FProps.avpfdesc   = av_pix_fmt_desc_get(m_FProps.avpixfmt);
-		m_FProps.lumabits   = GetLumaBits(m_FProps.avpfdesc);
-		m_FProps.pftype     = GetPixFmtType(m_FProps.avpixfmt, m_FProps.avpfdesc);
-		m_FProps.colorspace = pFrame->colorspace;
-		m_FProps.colorrange = pFrame->color_range;
-
-		Cleanup();
-	}
-
 	if (!m_pConvertFn) {
-		SetConvertFunc();
+		return false;
 	}
 
-	const SW_OUT_FMT& swof = s_sw_formats[m_out_pixfmt];
+	auto& outputFormat = s_outputFormats[m_out_pixfmt];
 
-	// From LAVVideo...
-	uint8_t *out = dst;
-	int outStride = m_dstStride;
-	// Check if we have proper pixel alignment and the dst memory is actually aligned
-	if (m_RequiredAlignment && FFALIGN(m_dstStride, m_RequiredAlignment) != m_dstStride || ((uintptr_t)dst % 16u)) {
-		// FFALIGN(x, 0) folds to 0 (x & ~(-1)), not x - guard against that or an
-		// unaligned dst with m_RequiredAlignment == 0 (e.g. plain NV12 passthrough)
-		// zeroes outStride, undersizing m_pAlignedBuffer and overflowing it below.
-		if (m_RequiredAlignment) {
-			outStride = FFALIGN(outStride, m_RequiredAlignment);
+	ptrdiff_t dstStrideArray[4] = {};
+	uint8_t* out;
+
+	if (m_RequiredAlignment && FFALIGN(m_dstStrides[0], m_RequiredAlignment) != m_dstStrides[0] || ((uintptr_t)dst % 16u)) {
+		size_t requiredSize = 0;
+
+		for (size_t i = 0; i < 4; i++) {
+			// FFALIGN(x, 0) folds to 0 (x & ~(-1)), not x - guard against that or an
+			// unaligned dst with m_RequiredAlignment == 0 (e.g. plain NV12 passthrough)
+			// zeroes the strides, undersizing the temp buffer and overflowing it below.
+			dstStrideArray[i] = m_RequiredAlignment ? FFALIGN(m_dstStrides[i], m_RequiredAlignment) : m_dstStrides[i];
+			requiredSize += dstStrideArray[i] * m_dstHeights[i];
 		}
-		size_t requiredSize = (outStride * m_planeHeight * swof.bpp) >> 3;
 
 		uint8_t* pTmpBuffer = (uint8_t*)GetTempBuffer(requiredSize);
 		if (pTmpBuffer == nullptr) {
@@ -600,47 +632,35 @@ bool CFormatConverter::Converting(BYTE* dst, const AVFrame* pFrame, const uint8_
 		}
 		out = pTmpBuffer;
 	}
-
-	uint8_t*  dstArray[4]       = { nullptr };
-	ptrdiff_t dstStrideArray[4] = { 0 };
-	ptrdiff_t byteStride        = outStride * swof.desc.packsize;
-
-	dstArray[0] = out;
-	dstStrideArray[0] = byteStride;
-	for (int i = 1; i < swof.desc.planes; ++i) {
-		dstArray[i] = dstArray[i - 1] + dstStrideArray[i - 1] * (m_planeHeight / swof.planeHeight[i - 1]);
-		dstStrideArray[i] = byteStride / swof.planeWidth[i];
+	else {
+		out = dst;
+		dstStrideArray[0] = m_dstStrides[0];
+		dstStrideArray[1] = m_dstStrides[1];
+		dstStrideArray[2] = m_dstStrides[2];
+		dstStrideArray[3] = m_dstStrides[3];
 	}
+
+	uint8_t* dstArray[4];
+	dstArray[0] = out;
+	dstArray[1] = dstArray[0] + dstStrideArray[0] * m_dstHeights[0];
+	dstArray[2] = dstArray[1] + dstStrideArray[1] * m_dstHeights[1];
+	dstArray[3] = dstArray[2] + dstStrideArray[2] * m_dstHeights[2];
 
 	(this->*m_pConvertFn)(srcData, srcStride, dstArray, m_FProps.width, m_FProps.height, dstStrideArray);
 
 	if (out != dst) {
-		int line = 0;
+		for (int i = 0; i < outputFormat.vdesc.planes; ++i) {
+			auto& planeHeight = m_dstHeights[i];
+			auto& outStride = dstStrideArray[i];
+			auto& dstStride = m_dstStrides[i];
+			const size_t linesize = std::min<size_t>(outStride, dstStride);
 
-		// Copy first plane
-		const size_t widthBytes        = m_FProps.width * swof.desc.packsize;
-		const ptrdiff_t srcStrideBytes = outStride * swof.desc.packsize;
-		const ptrdiff_t dstStrideBytes = m_dstStride * swof.desc.packsize;
-		for (line = 0; line < m_FProps.height; ++line) {
-			memcpy(dst, out, widthBytes);
-			out += srcStrideBytes;
-			dst += dstStrideBytes;
-		}
-		dst += (m_planeHeight - m_FProps.height) * dstStrideBytes;
-
-		for (int plane = 1; plane < swof.desc.planes; ++plane) {
-			const size_t planeWidth        = widthBytes      / swof.planeWidth[plane];
-			const int activePlaneHeight    = m_FProps.height / swof.planeHeight[plane];
-			const int totalPlaneHeight     = m_planeHeight   / swof.planeHeight[plane];
-			const ptrdiff_t srcPlaneStride = srcStrideBytes  / swof.planeWidth[plane];
-			const ptrdiff_t dstPlaneStride = dstStrideBytes  / swof.planeWidth[plane];
-			for (line = 0; line < activePlaneHeight; ++line) {
-				memcpy(dst, out, planeWidth);
-				out += srcPlaneStride;
-				dst += dstPlaneStride;
+			for (unsigned line = 0; line < planeHeight; ++line) {
+				memcpy(dst, out, linesize);
+				out += outStride;
+				dst += dstStride;
 			}
-			dst += (totalPlaneHeight - activePlaneHeight) * dstPlaneStride;
-		}
+ 		}
 	}
 
 	return true;
@@ -662,22 +682,6 @@ void CFormatConverter::Cleanup()
 	}
 
 	m_pConvertFn = nullptr;
-}
-
-bool CFormatConverter::FormatChanged(const AVPixelFormat fmt1, const AVPixelFormat fmt2) const
-{
-	if (fmt1 == AV_PIX_FMT_NONE || fmt2 == AV_PIX_FMT_NONE) {
-		return true;
-	}
-	const AVPixFmtDescriptor* av_pfdesc_fmt1 = av_pix_fmt_desc_get(fmt1);
-	const AVPixFmtDescriptor* av_pfdesc_fmt2 = av_pix_fmt_desc_get(fmt2);
-	if (!av_pfdesc_fmt1 || !av_pfdesc_fmt2) {
-		return false;
-	}
-	return av_pfdesc_fmt1->log2_chroma_h != av_pfdesc_fmt2->log2_chroma_h
-			|| av_pfdesc_fmt1->log2_chroma_w != av_pfdesc_fmt2->log2_chroma_w
-			|| av_pfdesc_fmt1->nb_components != av_pfdesc_fmt2->nb_components
-			|| av_pfdesc_fmt1->comp[0].depth != av_pfdesc_fmt2->comp[0].depth;
 }
 
 void CFormatConverter::Clear()
