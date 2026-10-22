@@ -1,10 +1,12 @@
-name: Build and release MPCVideoDec-fork.ax
+name: Build and release standalone filters
 
-# Standalone-decoder distribution for this fork's own MPCVideoDec fixes/
-# improvements, developed independently of upstream (Aleksoid1978/MPC-BE) -
-# see https://github.com/Aleksoid1978/MPC-BE/pull/1165 for why the first one
-# of these didn't get merged upstream. Builds only the MPCVideoDec filter
-# (x64), not the rest of MPC-BE.
+# Standalone-filter distribution for this fork's own fixes/improvements,
+# developed independently of upstream (Aleksoid1978/MPC-BE) - see
+# https://github.com/Aleksoid1978/MPC-BE/pull/1165 for why the first one of
+# these didn't get merged upstream. Builds only MPCVideoDec-fork.ax and
+# MpcAudioRenderer-fork.ax (x64), not the rest of MPC-BE. Both share one
+# version number (include/Version.h + git describe), so one tag releases
+# both, each in its own zip.
 
 on:
   push:
@@ -39,7 +41,7 @@ jobs:
           .\\update_gcc.bat
         shell: pwsh
 
-      - name: Build MPCVideoDec-fork (x64 Release)
+      - name: Build filters (x64 Release)
         run: |
           .\\build.bat Build x64 Filters Release NoWait
         shell: pwsh
@@ -47,22 +49,27 @@ jobs:
       - name: Stage release files
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          New-Item -ItemType Directory -Force -Path dist\package | Out-Null
-          Copy-Item _bin\Filters_x64\MPCVideoDec-fork.ax dist\package\
-          Copy-Item scripts\Install_MPCVideoDec-fork_64.cmd dist\package\
-          Copy-Item scripts\Uninstall_MPCVideoDec-fork_64.cmd dist\package\
-          Compress-Archive -Path dist\package\* -DestinationPath dist\MPCVideoDec-fork-x64.zip -Force
+          foreach ($name in 'MPCVideoDec-fork', 'MpcAudioRenderer-fork') {
+            $package = "dist\$name"
+            New-Item -ItemType Directory -Force -Path $package | Out-Null
+            Copy-Item "_bin\Filters_x64\$name.ax" $package
+            Copy-Item "scripts\Install_${name}_64.cmd" $package
+            Copy-Item "scripts\Uninstall_${name}_64.cmd" $package
+            Compress-Archive -Path "$package\*" -DestinationPath "dist\$name-x64.zip" -Force
+          }
         shell: pwsh
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
         with:
-          name: MPCVideoDec-fork-x64
-          path: dist\MPCVideoDec-fork-x64.zip
+          name: filters-x64
+          path: dist\*.zip
 
       - name: Upload release asset
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v3
         with:
-          files: dist\MPCVideoDec-fork-x64.zip
+          files: |
+            dist\MPCVideoDec-fork-x64.zip
+            dist\MpcAudioRenderer-fork-x64.zip
           generate_release_notes: true

@@ -28,7 +28,7 @@ This fork builds and distributes its own MPCVideoDec-fork.ax independently.
 
 Prebuilt `MPCVideoDec-fork.ax` (x64) is published on the
 [Releases](https://github.com/nanamitm/MPCVideoDec-fork/releases) page,
-tagged `decoder_v*`. Register it like any other DirectShow filter
+tagged `v*` (`MPCVideoDec-fork-x64.zip`). Register it like any other DirectShow filter
 (`regsvr32 MPCVideoDec-fork.ax`), or point a standalone-filters-aware player at
 it directly.
 
@@ -43,7 +43,8 @@ machine.
 dark-mode-aware property page base as the decoder. It registers as
 `MPC Audio Renderer (nanamitm)` with its own CLSIDs, and keeps its settings
 under `HKCU\Software\nanamitm Filters\MPC Audio Renderer`, so it can sit next
-to an official MPC-BE install. Register it with
+to an official MPC-BE install. It is released alongside the decoder under the
+same `v*` tags (`MpcAudioRenderer-fork-x64.zip`). Register it with
 `regsvr32 MpcAudioRenderer-fork.ax`.
 
 ## Building
@@ -58,14 +59,16 @@ build.bat Build x64 Filters Release NoWait
 
 produces `_bin\Filters_x64\MPCVideoDec-fork.ax` and
 `_bin\Filters_x64\MpcAudioRenderer-fork.ax`. See
-[`.github/workflows/decoder-release.yml`](.github/workflows/decoder-release.yml)
+[`.github/workflows/release.yml`](.github/workflows/release.yml)
 for the exact CI recipe (MinGW/GCC toolchain setup for the bundled FFmpeg,
-then an MSVC build of the filter itself).
+then an MSVC build of the filters themselves).
 
 For local registration helpers, use
-[`scripts/Install_MPCVideoDec-fork_64.cmd`](scripts/Install_MPCVideoDec-fork_64.cmd)
+[`scripts/Install_MPCVideoDec-fork_64.cmd`](scripts/Install_MPCVideoDec-fork_64.cmd) /
+[`scripts/Uninstall_MPCVideoDec-fork_64.cmd`](scripts/Uninstall_MPCVideoDec-fork_64.cmd)
 and
-[`scripts/Uninstall_MPCVideoDec-fork_64.cmd`](scripts/Uninstall_MPCVideoDec-fork_64.cmd).
+[`scripts/Install_MpcAudioRenderer-fork_64.cmd`](scripts/Install_MpcAudioRenderer-fork_64.cmd) /
+[`scripts/Uninstall_MpcAudioRenderer-fork_64.cmd`](scripts/Uninstall_MpcAudioRenderer-fork_64.cmd).
 
 ## License
 
