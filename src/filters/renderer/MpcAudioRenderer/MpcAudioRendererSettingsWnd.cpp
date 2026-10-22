@@ -62,7 +62,8 @@ bool CMpcAudioRendererSettingsWnd::OnActivate()
 	const int h20 = ScaleY(20);
 	const int h25 = ScaleY(25);
 	const int h35 = ScaleY(35);
-	CPoint p(10, 10);
+	const int comboOffsetY = -ScaleY(4);
+	CPoint p(ScaleX(10), ScaleY(10));
 
 	m_txtSoundDevice.Create(ResStr(IDS_ARS_SOUND_DEVICE), WS_VISIBLE | WS_CHILD, CRect(p, CSize(ScaleX(320), m_fontheight)), this, (UINT)IDC_STATIC);
 	p.y += h20;
@@ -70,17 +71,17 @@ bool CMpcAudioRendererSettingsWnd::OnActivate()
 	p.y += h35;
 
 	m_txtWasapiMode.Create(ResStr(IDS_ARS_WASAPI_MODE), WS_VISIBLE | WS_CHILD, CRect(p, CSize(ScaleX(200), m_fontheight)), this, (UINT)IDC_STATIC);
-	m_cbWasapiMode.Create(dwStyle | CBS_DROPDOWNLIST | WS_VSCROLL, CRect(p + CPoint(ScaleX(200), -4), CSize(ScaleX(120), 200)), this, IDC_PP_WASAPI_MODE);
+	m_cbWasapiMode.Create(dwStyle | CBS_DROPDOWNLIST | WS_VSCROLL, CRect(p + CPoint(ScaleX(200), comboOffsetY), CSize(ScaleX(120), 200)), this, IDC_PP_WASAPI_MODE);
 	m_cbWasapiMode.AddString(ResStr(IDS_ARS_SHARED));
 	m_cbWasapiMode.AddString(ResStr(IDS_ARS_EXCLUSIVE));
 	p.y += h25;
 	m_txtWasapiMethod.Create(ResStr(IDS_ARS_WASAPI_METHOD), WS_VISIBLE | WS_CHILD, CRect(p, CSize(ScaleX(200), m_fontheight)), this, (UINT)IDC_STATIC);
-	m_cbWasapiMethod.Create(dwStyle | CBS_DROPDOWNLIST | WS_VSCROLL, CRect(p + CPoint(ScaleX(200), -4), CSize(ScaleX(120), 200)), this, IDC_PP_WASAPI_METHOD);
+	m_cbWasapiMethod.Create(dwStyle | CBS_DROPDOWNLIST | WS_VSCROLL, CRect(p + CPoint(ScaleX(200), comboOffsetY), CSize(ScaleX(120), 200)), this, IDC_PP_WASAPI_METHOD);
 	m_cbWasapiMethod.AddString(L"Event");
 	m_cbWasapiMethod.AddString(L"Push");
 	p.y += h25;
 	m_txtDevicePeriod.Create(ResStr(IDS_ARS_DEVICE_PERIOD), WS_VISIBLE | WS_CHILD, CRect(p, CSize(ScaleX(200), m_fontheight)), this, (UINT)IDC_STATIC);
-	m_cbDevicePeriod.Create(dwStyle | CBS_DROPDOWNLIST | WS_VSCROLL, CRect(p + CPoint(ScaleX(200), -4), CSize(ScaleX(120), 200)), this, IDC_PP_WASAPI_DEVICE_PERIOD);
+	m_cbDevicePeriod.Create(dwStyle | CBS_DROPDOWNLIST | WS_VSCROLL, CRect(p + CPoint(ScaleX(200), comboOffsetY), CSize(ScaleX(120), 200)), this, IDC_PP_WASAPI_DEVICE_PERIOD);
 	AddStringData(m_cbDevicePeriod, ResStr(IDS_AG_DEFAULT), 0);
 	AddStringData(m_cbDevicePeriod, L"50 ms", 50);
 	AddStringData(m_cbDevicePeriod, L"100 ms", 100);
@@ -100,7 +101,7 @@ bool CMpcAudioRendererSettingsWnd::OnActivate()
 	m_cbPauseKeepActive.Create(ResStr(IDS_ARS_PAUSE_KEEP_ACTIVE), dwStyle | BS_AUTOCHECKBOX | BS_LEFTTEXT, CRect(p, CSize(ScaleX(320), m_fontheight)), this, IDC_PP_PAUSE_KEEP_ACTIVE);
 	p.y += h20;
 	p.x += ScaleX(240);
-	m_btnReset.Create(ResStr(IDS_FILTER_RESET_SETTINGS), dwStyle | BS_MULTILINE, CRect(p, CSize(ScaleX(80), ScaleX(32))), this, IDC_PP_RESET);
+	m_btnReset.Create(ResStr(IDS_FILTER_RESET_SETTINGS), dwStyle | BS_MULTILINE, CRect(p, CSize(ScaleX(80), ScaleY(32))), this, IDC_PP_RESET);
 
 	AudioDevices::GetActiveAudioDevices(nullptr, &m_deviceList, nullptr, TRUE);
 	for (const auto& device : m_deviceList) {

@@ -134,7 +134,9 @@ public:
 	void OnDeactivate();
 
 	static LPCWSTR GetWindowTitle() { return MAKEINTRESOURCEW(IDS_ARS_STATUS); }
-	static CSize GetWindowSize() { return CSize(392, 143); }
+	// Upstream's 392 clipped the Output group box, whose right edge is at
+	// x = 400 (OnActivate()'s layout, in 96 DPI units).
+	static CSize GetWindowSize() { return CSize(410, 143); }
 
 	DECLARE_MESSAGE_MAP()
 };
