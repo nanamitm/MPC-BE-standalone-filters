@@ -18,7 +18,7 @@ REM along with this program.  If not, see <http://www.gnu.org/licenses/>.
 REM
 REM This fork only builds standalone filters (MPCVideoDec-fork.ax and
 REM MpcAudioRenderer-fork.ax), not the full MPC-BE player - the "Filter"
-REM configurations of MPCVideoDec.sln are the only ones this script (and the
+REM configurations of MPC-BE-standalone-filters.sln are the only ones this script (and the
 REM solution) support.
 
 SETLOCAL ENABLEDELAYEDEXPANSION
@@ -147,7 +147,7 @@ IF !ERRORLEVEL! NEQ 0 EXIT /B !ERRORLEVEL!
 IF /I "%ZIP%" == "True" CALL :SubCreatePackages x64
 
 :End
-TITLE Compiling MPCVideoDec [FINISHED]
+TITLE Compiling MPC-BE standalone filters [FINISHED]
 SET END_TIME=%TIME%
 CALL :SubGetDuration
 CALL :SubMsg "INFO" "Compilation started on %START_DATE%-%START_TIME% and completed on %DATE%-%END_TIME% [%DURATION%]"
@@ -155,16 +155,16 @@ ENDLOCAL
 EXIT /B
 
 :SubFilters
-TITLE Compiling MPCVideoDec - %BUILDCFG% Filter^|%1...
-MSBuild.exe MPCVideoDec.sln %MSBUILD_SWITCHES%^
+TITLE Compiling MPC-BE standalone filters - %BUILDCFG% Filter^|%1...
+MSBuild.exe MPC-BE-standalone-filters.sln %MSBUILD_SWITCHES%^
  /target:%BUILDTYPE% /property:Configuration="%BUILDCFG% Filter";Platform=%1^
  /flp1:LogFile=%LOG_DIR%\filters_errors_%BUILDCFG%_%1.log;errorsonly;Verbosity=diagnostic^
  /flp2:LogFile=%LOG_DIR%\filters_warnings_%BUILDCFG%_%1.log;warningsonly;Verbosity=diagnostic
 IF %ERRORLEVEL% NEQ 0 (
-  CALL :SubMsg "ERROR" "MPCVideoDec.sln %BUILDCFG% Filter %1 - Compilation failed!"
+  CALL :SubMsg "ERROR" "MPC-BE-standalone-filters.sln %BUILDCFG% Filter %1 - Compilation failed!"
   EXIT /B %ERRORLEVEL%
 ) ELSE (
-  CALL :SubMsg "INFO" "MPCVideoDec.sln %BUILDCFG% Filter %1 compiled successfully"
+  CALL :SubMsg "INFO" "MPC-BE-standalone-filters.sln %BUILDCFG% Filter %1 compiled successfully"
 )
 
 IF /I "%1" == "Win32" (
@@ -323,7 +323,7 @@ ECHO Usage:
 ECHO %~nx0 [Clean^|Build^|Rebuild] [x86^|x64^|Both] [Debug^|Release] [Zip] [Sign]
 ECHO.
 ECHO Notes: This fork only builds standalone filters (MPCVideoDec-fork.ax and
-ECHO        MpcAudioRenderer-fork.ax) via the "Filter" configurations of MPCVideoDec.sln.
+ECHO        MpcAudioRenderer-fork.ax) via the "Filter" configurations of MPC-BE-standalone-filters.sln.
 ECHO        The "Filters" keyword is still accepted for compatibility with existing
 ECHO        scripts/CI but has no effect - filters are the only thing this script builds.
 ECHO        You can also prefix the commands with "-", "--" or "/".
@@ -343,7 +343,7 @@ EXIT /B
 
 :MissingVar
 COLOR 0C
-TITLE Compiling MPCVideoDec [ERROR]
+TITLE Compiling MPC-BE standalone filters [ERROR]
 ECHO Not all build dependencies were found.
 ECHO.
 ECHO Make sure environments.bat defines MPCBE_MINGW/MPCBE_MSYS and that Visual Studio

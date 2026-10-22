@@ -51,7 +51,7 @@
 // MPC_VERSION_STATUS: 0 - dev; 1 - stable
 
 #define MPC_YEAR_COMMENTS       "2002-2026"
-#define MPC_VERSION_COMMENTS    "https://github.com/nanamitm/MPCVideoDec-fork"
+#define MPC_VERSION_COMMENTS    "https://github.com/nanamitm/MPC-BE-standalone-filters"
 
 #ifndef ISPP_INVOKED
 

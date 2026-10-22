@@ -1,4 +1,6 @@
-# MPCVideoDec-fork
+# MPC-BE-standalone-filters
+
+(Formerly `MPCVideoDec-fork`; old links redirect here.)
 
 Standalone builds of selected DirectShow filters from
 [MPC-BE](https://github.com/Aleksoid1978/MPC-BE), with fixes that didn't make
@@ -10,7 +12,7 @@ does not build the MPC-BE player itself, only these filters:
 
 ## Why this exists
 
-This fork carries a couple of D3D11 decode fixes on top of upstream
+This fork started out carrying a couple of D3D11 decode fixes on top of upstream
 [MPC-BE](https://github.com/Aleksoid1978/MPC-BE), worked out while running
 this decoder under [BonDriver_dantto4k](https://github.com/0p1pkt2/dantto4k)-fed
 4K/8K broadcast streams in [TVTest](https://github.com/DBCTRADO/TVTest):
@@ -22,12 +24,13 @@ this decoder under [BonDriver_dantto4k](https://github.com/0p1pkt2/dantto4k)-fed
   occasionally leaving D3D11 device creation in a bad state (no video on
   startup or after a renderer switch).
 
-This fork builds and distributes its own MPCVideoDec-fork.ax independently.
+Since then it has grown into a small set of standalone filters, released
+independently of upstream.
 
 ## Getting the decoder
 
 Prebuilt `MPCVideoDec-fork.ax` (x64) is published on the
-[Releases](https://github.com/nanamitm/MPCVideoDec-fork/releases) page,
+[Releases](https://github.com/nanamitm/MPC-BE-standalone-filters/releases) page,
 tagged `v*` (`MPCVideoDec-fork-x64.zip`). Register it like any other DirectShow filter
 (`regsvr32 MPCVideoDec-fork.ax`), or point a standalone-filters-aware player at
 it directly.
