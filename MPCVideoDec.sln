@@ -31,6 +31,12 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "uavs3d", "src\ExtLib\uavs3d
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "vvdec", "src\ExtLib\vvdec.vcxproj", "{A5B58721-0F63-4410-9598-880EBDA78C53}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AudioTools", "src\AudioTools\AudioTools.vcxproj", "{1B6DE4C0-9D27-4150-A327-E7F3B492B5F0}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libbs2b", "src\ExtLib\libbs2b\libbs2b.vcxproj", "{C868FDA0-2A56-4274-8C34-AC4751DA7BED}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MpcAudioRenderer", "src\filters\renderer\MpcAudioRenderer\MpcAudioRenderer.vcxproj", "{D0620EF4-1313-40D5-9069-A82F6FE26994}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug Filter|Win32 = Debug Filter|Win32
@@ -135,6 +141,30 @@ Global
 		{A5B58721-0F63-4410-9598-880EBDA78C53}.Release Filter|Win32.Build.0 = Release|Win32
 		{A5B58721-0F63-4410-9598-880EBDA78C53}.Release Filter|x64.ActiveCfg = Release|x64
 		{A5B58721-0F63-4410-9598-880EBDA78C53}.Release Filter|x64.Build.0 = Release|x64
+		{1B6DE4C0-9D27-4150-A327-E7F3B492B5F0}.Debug Filter|Win32.ActiveCfg = Debug|Win32
+		{1B6DE4C0-9D27-4150-A327-E7F3B492B5F0}.Debug Filter|Win32.Build.0 = Debug|Win32
+		{1B6DE4C0-9D27-4150-A327-E7F3B492B5F0}.Debug Filter|x64.ActiveCfg = Debug|x64
+		{1B6DE4C0-9D27-4150-A327-E7F3B492B5F0}.Debug Filter|x64.Build.0 = Debug|x64
+		{1B6DE4C0-9D27-4150-A327-E7F3B492B5F0}.Release Filter|Win32.ActiveCfg = Release|Win32
+		{1B6DE4C0-9D27-4150-A327-E7F3B492B5F0}.Release Filter|Win32.Build.0 = Release|Win32
+		{1B6DE4C0-9D27-4150-A327-E7F3B492B5F0}.Release Filter|x64.ActiveCfg = Release|x64
+		{1B6DE4C0-9D27-4150-A327-E7F3B492B5F0}.Release Filter|x64.Build.0 = Release|x64
+		{C868FDA0-2A56-4274-8C34-AC4751DA7BED}.Debug Filter|Win32.ActiveCfg = Debug|Win32
+		{C868FDA0-2A56-4274-8C34-AC4751DA7BED}.Debug Filter|Win32.Build.0 = Debug|Win32
+		{C868FDA0-2A56-4274-8C34-AC4751DA7BED}.Debug Filter|x64.ActiveCfg = Debug|x64
+		{C868FDA0-2A56-4274-8C34-AC4751DA7BED}.Debug Filter|x64.Build.0 = Debug|x64
+		{C868FDA0-2A56-4274-8C34-AC4751DA7BED}.Release Filter|Win32.ActiveCfg = Release|Win32
+		{C868FDA0-2A56-4274-8C34-AC4751DA7BED}.Release Filter|Win32.Build.0 = Release|Win32
+		{C868FDA0-2A56-4274-8C34-AC4751DA7BED}.Release Filter|x64.ActiveCfg = Release|x64
+		{C868FDA0-2A56-4274-8C34-AC4751DA7BED}.Release Filter|x64.Build.0 = Release|x64
+		{D0620EF4-1313-40D5-9069-A82F6FE26994}.Debug Filter|Win32.ActiveCfg = Debug Filter|Win32
+		{D0620EF4-1313-40D5-9069-A82F6FE26994}.Debug Filter|Win32.Build.0 = Debug Filter|Win32
+		{D0620EF4-1313-40D5-9069-A82F6FE26994}.Debug Filter|x64.ActiveCfg = Debug Filter|x64
+		{D0620EF4-1313-40D5-9069-A82F6FE26994}.Debug Filter|x64.Build.0 = Debug Filter|x64
+		{D0620EF4-1313-40D5-9069-A82F6FE26994}.Release Filter|Win32.ActiveCfg = Release Filter|Win32
+		{D0620EF4-1313-40D5-9069-A82F6FE26994}.Release Filter|Win32.Build.0 = Release Filter|Win32
+		{D0620EF4-1313-40D5-9069-A82F6FE26994}.Release Filter|x64.ActiveCfg = Release Filter|x64
+		{D0620EF4-1313-40D5-9069-A82F6FE26994}.Release Filter|x64.Build.0 = Release Filter|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

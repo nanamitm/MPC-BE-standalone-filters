@@ -16,9 +16,10 @@ REM
 REM You should have received a copy of the GNU General Public License
 REM along with this program.  If not, see <http://www.gnu.org/licenses/>.
 REM
-REM This fork only builds the standalone MPCVideoDec filter (MPCVideoDec.ax),
-REM not the full MPC-BE player - the "Filter" configurations of
-REM MPCVideoDec.sln are the only ones this script (and the solution) support.
+REM This fork only builds standalone filters (MPCVideoDec-fork.ax and
+REM MpcAudioRenderer-fork.ax), not the full MPC-BE player - the "Filter"
+REM configurations of MPCVideoDec.sln are the only ones this script (and the
+REM solution) support.
 
 SETLOCAL ENABLEDELAYEDEXPANSION
 CD /D %~dp0
@@ -321,10 +322,10 @@ ECHO.
 ECHO Usage:
 ECHO %~nx0 [Clean^|Build^|Rebuild] [x86^|x64^|Both] [Debug^|Release] [Zip] [Sign]
 ECHO.
-ECHO Notes: This fork only builds the standalone MPCVideoDec filter (MPCVideoDec.ax),
-ECHO        via the "Filter" configurations of MPCVideoDec.sln. The "Filters" keyword
-ECHO        is still accepted for compatibility with existing scripts/CI but has no
-ECHO        effect - it is the only thing this script builds.
+ECHO Notes: This fork only builds standalone filters (MPCVideoDec-fork.ax and
+ECHO        MpcAudioRenderer-fork.ax) via the "Filter" configurations of MPCVideoDec.sln.
+ECHO        The "Filters" keyword is still accepted for compatibility with existing
+ECHO        scripts/CI but has no effect - filters are the only thing this script builds.
 ECHO        You can also prefix the commands with "-", "--" or "/".
 ECHO        The arguments are not case sensitive and can be ommitted.
 ECHO. & ECHO.
@@ -332,8 +333,8 @@ ECHO Executing %~nx0 without any arguments will use the default ones:
 ECHO "%~nx0 Build Both Release"
 ECHO. & ECHO.
 ECHO Examples:
-ECHO %~nx0 x86           -Builds the x86 filter
-ECHO %~nx0 x86 Debug     -Builds the x86 filter, Debug configuration
+ECHO %~nx0 x86           -Builds the x86 filters
+ECHO %~nx0 x86 Debug     -Builds the x86 filters, Debug configuration
 ECHO %~nx0 Zip           -Builds both x86 and x64 filters and creates a .7z package
 ECHO %~nx0 Sign          -Builds both x86 and x64 filters and signs the output files
 ECHO.

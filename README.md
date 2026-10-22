@@ -1,10 +1,12 @@
 # MPCVideoDec-fork
 
-A standalone build of **MPCVideoDec-fork.ax**, the D3D11/DXVA2 hardware video
-decoder filter from [MPC-BE](https://github.com/Aleksoid1978/MPC-BE), with a
-couple of D3D11 decode fixes that didn't make it upstream. This repository
-only builds and distributes that one filter - it does not build the MPC-BE
-player or any of its other filters.
+Standalone builds of selected DirectShow filters from
+[MPC-BE](https://github.com/Aleksoid1978/MPC-BE), with fixes that didn't make
+it upstream and dark mode support for their property pages. This repository
+does not build the MPC-BE player itself, only these filters:
+
+- **MPCVideoDec-fork.ax** - the D3D11/DXVA2 hardware video decoder.
+- **MpcAudioRenderer-fork.ax** - the WASAPI audio renderer.
 
 ## Why this exists
 
@@ -26,7 +28,7 @@ This fork builds and distributes its own MPCVideoDec-fork.ax independently.
 
 Prebuilt `MPCVideoDec-fork.ax` (x64) is published on the
 [Releases](https://github.com/nanamitm/MPCVideoDec-fork/releases) page,
-tagged `decoder_v*`. Register it like any other DirectShow filter
+tagged `v*` (`MPCVideoDec-fork-x64.zip`). Register it like any other DirectShow filter
 (`regsvr32 MPCVideoDec-fork.ax`), or point a standalone-filters-aware player at
 it directly.
 
@@ -35,25 +37,38 @@ This build registers under its own CLSIDs and filter names
 won't collide in the registry with an official MPC-BE install on the same
 machine.
 
+## Audio renderer
+
+`MpcAudioRenderer-fork.ax` is upstream's MPC Audio Renderer, built on the same
+dark-mode-aware property page base as the decoder. It registers as
+`MPC Audio Renderer (nanamitm)` with its own CLSIDs, and keeps its settings
+under `HKCU\Software\nanamitm Filters\MPC Audio Renderer`, so it can sit next
+to an official MPC-BE install. It is released alongside the decoder under the
+same `v*` tags (`MpcAudioRenderer-fork-x64.zip`). Register it with
+`regsvr32 MpcAudioRenderer-fork.ax`.
+
 ## Building
 
-This repository is trimmed to just the source MPCVideoDec-fork.ax needs (FFmpeg,
-vvdec, uavs3d, soxr, speex, mfx_dispatch, DSUtil, BaseClasses, and the
-filter base classes) - it's not a full MPC-BE checkout.
+This repository is trimmed to just the source these filters need (FFmpeg,
+vvdec, uavs3d, soxr, speex, mfx_dispatch, libbs2b, AudioTools, DSUtil,
+BaseClasses, and the filter base classes) - it's not a full MPC-BE checkout.
 
 ```
 build.bat Build x64 Filters Release NoWait
 ```
 
-produces `_bin\Filters_x64\MPCVideoDec-fork.ax`. See
-[`.github/workflows/decoder-release.yml`](.github/workflows/decoder-release.yml)
+produces `_bin\Filters_x64\MPCVideoDec-fork.ax` and
+`_bin\Filters_x64\MpcAudioRenderer-fork.ax`. See
+[`.github/workflows/release.yml`](.github/workflows/release.yml)
 for the exact CI recipe (MinGW/GCC toolchain setup for the bundled FFmpeg,
-then an MSVC build of the filter itself).
+then an MSVC build of the filters themselves).
 
 For local registration helpers, use
-[`scripts/Install_MPCVideoDec-fork_64.cmd`](scripts/Install_MPCVideoDec-fork_64.cmd)
+[`scripts/Install_MPCVideoDec-fork_64.cmd`](scripts/Install_MPCVideoDec-fork_64.cmd) /
+[`scripts/Uninstall_MPCVideoDec-fork_64.cmd`](scripts/Uninstall_MPCVideoDec-fork_64.cmd)
 and
-[`scripts/Uninstall_MPCVideoDec-fork_64.cmd`](scripts/Uninstall_MPCVideoDec-fork_64.cmd).
+[`scripts/Install_MpcAudioRenderer-fork_64.cmd`](scripts/Install_MpcAudioRenderer-fork_64.cmd) /
+[`scripts/Uninstall_MpcAudioRenderer-fork_64.cmd`](scripts/Uninstall_MpcAudioRenderer-fork_64.cmd).
 
 ## License
 
