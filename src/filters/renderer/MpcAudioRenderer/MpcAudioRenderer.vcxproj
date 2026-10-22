@@ -18,6 +18,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)'=='Debug Filter' Or '$(Configuration)'=='Release Filter'">
+    <TargetName>MpcAudioRenderer-fork</TargetName>
     <TargetExt>.ax</TargetExt>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug Filter|Win32'">

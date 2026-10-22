@@ -31,10 +31,12 @@
 #include "AudioDevice.h"
 #include "MpcAudioRenderer.h"
 
-#include "filters/transform/MpaDecFilter/MpaDecFilter.h"
+// MpaDecFilter isn't part of this repository; only its CLSID is needed here.
+#include <FilterInterfaces.h>
+class __declspec(uuid("3D446B6F-71DE-4437-BE15-8CE47174340F")) CMpaDecFilter;
 
 // option names
-#define OPT_REGKEY_AudRend          L"Software\\MPC-BE Filters\\MPC Audio Renderer"
+#define OPT_REGKEY_AudRend          L"Software\\nanamitm Filters\\MPC Audio Renderer"
 #define OPT_SECTION_AudRend         L"Filters\\MPC Audio Renderer"
 #define OPT_DeviceMode              L"DeviceMode"
 #define OPT_WasapiMethod            L"WasapiMethod"

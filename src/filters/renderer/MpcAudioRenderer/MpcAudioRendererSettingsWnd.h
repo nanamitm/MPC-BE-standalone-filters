@@ -25,7 +25,7 @@
 #include "IMpcAudioRenderer.h"
 #include "resource.h"
 
-class __declspec(uuid("1E53BA32-3BCC-4dff-9342-34E46BE3F5A5"))
+class __declspec(uuid("59376AB3-6225-4093-8A62-C6559C1FA997"))
 	CMpcAudioRendererSettingsWnd : public CInternalPropertyPageWnd
 {
 private :
@@ -78,7 +78,9 @@ public:
 	bool OnApply();
 
 	static LPCWSTR GetWindowTitle() { return MAKEINTRESOURCEW(IDS_FILTER_SETTINGS_CAPTION); }
-	static CSize GetWindowSize() { return CSize(340, 231); }
+	// Upstream's 231 clipped the last checkboxes and the Reset button, which
+	// ends at y = 312 (OnActivate()'s layout, in 96 DPI units).
+	static CSize GetWindowSize() { return CSize(340, 322); }
 
 	DECLARE_MESSAGE_MAP()
 
@@ -91,7 +93,7 @@ public:
 };
 
 
-class __declspec(uuid("E3D0704B-1579-4E9E-8674-2674CB90D07A"))
+class __declspec(uuid("DF3E5420-10B3-4F67-BE3E-D7D8F2EEA224"))
 	CMpcAudioRendererStatusWnd : public CInternalPropertyPageWnd
 {
 private :

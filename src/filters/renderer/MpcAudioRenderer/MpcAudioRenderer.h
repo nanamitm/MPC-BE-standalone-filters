@@ -34,13 +34,16 @@
 
 #include <optional>
 
-#define MpcAudioRendererName L"MPC Audio Renderer"
+#define MpcAudioRendererName L"MPC Audio Renderer (nanamitm)"
 
 // if you get a compilation error on AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED,
 // uncomment the #define below
 // #define AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED	AUDCLNT_ERR(0x019)
 
-class __declspec(uuid("601D2A2B-9CDE-40bd-8650-0485E3522727"))
+// Own CLSID, distinct from upstream MPC-BE's, so this fork's standalone
+// MpcAudioRenderer.ax doesn't collide in the registry with an official build
+// registered on the same machine.
+class __declspec(uuid("54C37E17-BE59-4ADB-B338-D2F04BD2A0A5"))
 	CMpcAudioRenderer final
 	: public CBaseRenderer
 	, public IBasicAudio

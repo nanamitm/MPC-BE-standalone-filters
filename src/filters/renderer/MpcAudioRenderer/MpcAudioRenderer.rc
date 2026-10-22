@@ -72,10 +72,10 @@ BEGIN
             VALUE "CompanyName", MPC_COMP_NAME_STR
             VALUE "FileDescription", "WASAPI Audio Renderer"
             VALUE "FileVersion", MPC_VERSION_FULL_STR
-            VALUE "InternalName", "MpcAudioRenderer Filter"
+            VALUE "InternalName", "MpcAudioRenderer-fork"
             VALUE "LegalCopyright", MPC_COPYRIGHT_STR
-            VALUE "OriginalFilename", "MpcAudioRendererFilter.ax"
-            VALUE "ProductName", "MpcAudioRenderer Filter"
+            VALUE "OriginalFilename", "MpcAudioRenderer-fork.ax"
+            VALUE "ProductName", "MpcAudioRenderer-fork"
             VALUE "ProductVersion", MPC_VERSION_STR
         END
     END
