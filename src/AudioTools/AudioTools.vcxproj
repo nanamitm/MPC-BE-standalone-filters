@@ -65,6 +65,7 @@
     <ClInclude Include="Filter.h" />
     <ClInclude Include="Mixer.h" />
     <ClInclude Include="SampleFormat.h" />
+    <ClInclude Include="SpatialPCM.h" />
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>

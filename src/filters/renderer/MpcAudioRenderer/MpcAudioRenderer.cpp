@@ -34,9 +34,10 @@ extern "C" {
 #include "ExtLib/ffmpeg/libavutil/channel_layout.h"
 }
 
-// MpaDecFilter isn't part of this repository; only its CLSID is needed here.
+// Only the upstream/fork decoder CLSIDs and configuration interface are needed here.
 #include <FilterInterfaces.h>
 class __declspec(uuid("3D446B6F-71DE-4437-BE15-8CE47174340F")) CMpaDecFilter;
+class __declspec(uuid("E0455945-14D5-4CF2-9087-ACB62983F871")) CForkMpaDecFilter;
 
 // option names
 #define OPT_REGKEY_AudRend          L"Software\\nanamitm Filters\\MPC Audio Renderer"
@@ -3064,7 +3065,7 @@ HRESULT CMpcAudioRenderer::ReinitializeAudioDevice(BOOL bFullInitialization/* = 
 		if (!bInfTeePresent) {
 			BeginEnumFilters(m_pGraph, pEF, pBF) {
 				CLSID clsid;
-				if (SUCCEEDED(pBF->GetClassID(&clsid)) && __uuidof(CMpaDecFilter) == clsid) {
+				if (SUCCEEDED(pBF->GetClassID(&clsid)) && (__uuidof(CMpaDecFilter) == clsid || __uuidof(CForkMpaDecFilter) == clsid)) {
 					if (CComQIPtr<IExFilterConfig> pEFC = pBF.p) {
 						pEFC->Flt_SetBool("check_bitstream", true);
 					}

@@ -16,12 +16,13 @@
 inline constexpr GUID MEDIASUBTYPE_MPC_22POINT2 =
 {0x3740b29c, 0x02a5, 0x4f75, {0xa8, 0xc9, 0x90, 0x8d, 0x9b, 0xac, 0xb8, 0x57}};
 
-enum MPC_SPATIAL_MODE : int { MPC_SPATIAL_AUTO, MPC_SPATIAL_DISABLED };
+enum MPC_SPATIAL_MODE : int { MPC_SPATIAL_UNAVAILABLE = -1, MPC_SPATIAL_AUTO = 0, MPC_SPATIAL_DISABLED = 1 };
 
 // Separate IID: preserve the existing IMpcAudioRendererFilter vtable.
 interface __declspec(uuid("540EA4F8-4198-4A1D-B96D-47F61EFD811A"))
 IMpcAudioRendererSpatial : public IUnknown {
 	STDMETHOD(SetSpatialMode(INT mode)) PURE;
+	// A forwarding filter returns UNAVAILABLE until a compatible destination is connected.
 	STDMETHOD_(INT, GetSpatialMode()) PURE;
 	// S_OK = spatial active, S_FALSE = disabled/not a spatial input,
 	// failing HRESULT = last spatial failure; WASAPI fallback may still play.

@@ -287,7 +287,7 @@ bool CFFAudioDecoder::Init(enum AVCodecID codecID, CMediaType* mediaType)
 		codec_id	= m_pAVCtx->codec_id;
 		samplerate	= m_pAVCtx->sample_rate;
 		channels	= m_pAVCtx->ch_layout.nb_channels;
-		ch_layout   = m_pAVCtx->ch_layout;
+		if (av_channel_layout_copy(&ch_layout, &m_pAVCtx->ch_layout) < 0) return false;
 		bitdeph		= m_pAVCtx->bits_per_coded_sample;
 		block_align	= m_pAVCtx->block_align;
 		bitrate		= m_pAVCtx->bit_rate;
@@ -465,14 +465,14 @@ bool CFFAudioDecoder::Init(enum AVCodecID codecID, CMediaType* mediaType)
 		// Strange hack to correct Vorbis decoding after https://github.com/FFmpeg/FFmpeg/commit/8fc2dedfe6e8fcc58dd052bf3b85cd4754133b17
 		m_pPacket->pts = 0;
 	}
-	else if (m_pAVCtx->ch_layout.nb_channels > 8 && m_pAVCtx->ch_layout.order == AV_CHANNEL_ORDER_NATIVE && (m_pAVCtx->ch_layout.u.mask & 0xffffffff00000000)) {
-		DLog(L"CFFAudioDecoder::Init : Enable conversion of more than 8-channel audio with unsupported channel layouts to 7.1");
-		m_bNeedMix           = true;
-		m_MixerSamplerate    = m_pAVCtx->sample_rate;
-		m_MixerChannels      = 8;
-		m_MixerChannelLayout = GetDefChannelMask(8);
-		m_Mixer.UpdateInput((SampleFormat)m_pAVCtx->sample_fmt, m_pAVCtx->ch_layout.u.mask, m_pAVCtx->sample_rate);
-		m_Mixer.UpdateOutput(SAMPLE_FMT_FLT, m_MixerChannelLayout, m_MixerSamplerate);
+	else if (!m_spatialOutput && m_pAVCtx->ch_layout.nb_channels > 8
+		&& (m_pAVCtx->ch_layout.nb_channels == 24 || (m_pAVCtx->ch_layout.order == AV_CHANNEL_ORDER_NATIVE
+			&& (m_pAVCtx->ch_layout.u.mask & 0xffffffff00000000ULL)))) {
+		// Offer a usable ordinary format before the first decoded frame. The
+		// converter/mixer is configured from AVFrame metadata in ReceiveData.
+		m_bNeedMix=true;
+		m_MixerChannels=8; m_MixerSamplerate=m_pAVCtx->sample_rate;
+		m_MixerChannelLayout=AV_CH_LAYOUT_7POINT1;
 	}
 	else if (m_pAVCtx->sample_fmt == AV_SAMPLE_FMT_DSD) {
 		DLog(L"CFFAudioDecoder::Init : Enable DSD to PCM Float conversion");
@@ -581,14 +581,59 @@ HRESULT CFFAudioDecoder::ReceiveData(std::vector<BYTE>& BuffOut, size_t& outputS
 {
 	HRESULT hr = E_FAIL;
 	const int ret = avcodec_receive_frame(m_pAVCtx, m_pFrame);
+	if (ret == AVERROR_EOF && m_spatialFrame) {
+		if (!m_spatialConverter.Drain(BuffOut, outputSize)) return E_FAIL;
+		if (outputSize) {
+			samplefmt = SAMPLE_FMT_FLT;
+			rtStart = INVALID_TIME;
+			return S_OK;
+		}
+	}
+
 	if (ret >= 0) {
 		rtStart = m_pFrame->pkt_dts;
 		m_pFilter->ClearCacheTimeStamp();
 
 		outputSize = 0;
+		m_spatialFrame = false;
 
 		const size_t nSamples = m_pFrame->nb_samples;
 		if (nSamples) {
+			if (m_pFrame->ch_layout.nb_channels == 24) {
+				const int rate=m_spatialOutput?48000:m_pFrame->sample_rate;
+				auto& canonical=m_spatialOutput?BuffOut:m_spatialBuffer;
+				if (!m_spatialConverter.Convert(m_pFrame,canonical,outputSize,rate)) {
+					av_frame_unref(m_pFrame); return E_INVALIDARG;
+				}
+				samplefmt=SAMPLE_FMT_FLT;
+				m_spatialFrame=m_spatialOutput;
+				if (!m_spatialOutput) {
+					m_bNeedMix=true;
+					m_MixerChannels=8; m_MixerSamplerate=rate; m_MixerChannelLayout=AV_CH_LAYOUT_7POINT1;
+					m_Mixer.SetOptions(1.0,1.0,true,false);
+					m_Mixer.UpdateInput(SAMPLE_FMT_FLT,AV_CH_LAYOUT_22POINT2,rate);
+					m_Mixer.UpdateOutput(SAMPLE_FMT_FLT,AV_CH_LAYOUT_7POINT1,rate);
+					const int inputSamples=static_cast<int>(outputSize/(24*sizeof(float)));
+					const int capacity=m_Mixer.CalcOutSamples(inputSamples);
+					if (capacity<=0) { av_frame_unref(m_pFrame); return E_INVALIDARG; }
+					BuffOut.resize(size_t(capacity)*8*sizeof(float));
+					const int count=m_Mixer.Mixing(BuffOut.data(),capacity,canonical.data(),inputSamples);
+					if(count<0) { av_frame_unref(m_pFrame); return E_INVALIDARG; }
+					outputSize=size_t(count)*8*sizeof(float);
+				}
+				av_frame_unref(m_pFrame); return S_OK;
+			}
+			m_spatialConverter.Reset();
+			if (m_pAVCtx->sample_fmt != AV_SAMPLE_FMT_DSD) {
+				m_bNeedMix=m_pFrame->ch_layout.nb_channels>8 && m_pFrame->ch_layout.order==AV_CHANNEL_ORDER_NATIVE
+					&& (m_pFrame->ch_layout.u.mask & 0xffffffff00000000ULL);
+				if (m_bNeedMix) {
+					m_MixerChannels=8; m_MixerSamplerate=m_pFrame->sample_rate; m_MixerChannelLayout=AV_CH_LAYOUT_7POINT1;
+					m_Mixer.SetOptions(1.0,1.0,true,false);
+					m_Mixer.UpdateInput((SampleFormat)m_pFrame->format,m_pFrame->ch_layout.u.mask,m_pFrame->sample_rate);
+					m_Mixer.UpdateOutput(SAMPLE_FMT_FLT,m_MixerChannelLayout,m_MixerSamplerate);
+				}
+			}
 			if (m_bNeedMix) {
 				samplefmt = SAMPLE_FMT_FLT;
 
@@ -639,6 +684,9 @@ HRESULT CFFAudioDecoder::ReceiveData(std::vector<BYTE>& BuffOut, size_t& outputS
 
 void CFFAudioDecoder::FlushBuffers()
 {
+	m_spatialConverter.Reset();
+	m_Mixer.FlushBuffers();
+	m_spatialFrame=false;
 	if (m_pParser) {
 		av_parser_close(m_pParser);
 		m_pParser = av_parser_init(GetCodecId());
@@ -652,6 +700,8 @@ void CFFAudioDecoder::FlushBuffers()
 
 void CFFAudioDecoder::StreamFinish()
 {
+	m_spatialFrame=false;
+	m_spatialConverter.Reset();
 	m_pAVCodec = nullptr;
 
 	av_parser_close(m_pParser);
@@ -827,21 +877,25 @@ const char* CFFAudioDecoder::GetCodecName()
 
 SampleFormat CFFAudioDecoder::GetSampleFmt()
 {
+	if (m_spatialFrame) return SAMPLE_FMT_FLT;
 	return m_bNeedMix ? SAMPLE_FMT_FLT : (SampleFormat)m_pAVCtx->sample_fmt;
 }
 
 DWORD CFFAudioDecoder::GetSampleRate()
 {
+	if (m_spatialFrame) return 48000;
 	return m_bNeedMix ? (DWORD)m_MixerSamplerate : (DWORD)m_pAVCtx->sample_rate;
 }
 
 WORD CFFAudioDecoder::GetChannels()
 {
+	if (m_spatialFrame) return 24;
 	return m_bNeedMix ? (WORD)m_MixerChannels : (WORD)m_pAVCtx->ch_layout.nb_channels;
 }
 
 DWORD CFFAudioDecoder::GetChannelMask()
 {
+	if (m_spatialFrame) return 0;
 	return get_lav_channel_layout(m_bNeedMix ? m_MixerChannelLayout : m_pAVCtx->ch_layout.u.mask);
 }
 

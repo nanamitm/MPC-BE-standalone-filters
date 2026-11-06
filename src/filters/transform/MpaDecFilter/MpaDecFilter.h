@@ -184,10 +184,11 @@ class __declspec(uuid("E0455945-14D5-4CF2-9087-ACB62983F871"))
 	HRESULT ProcessPCMfloatLE();
 
 	HRESULT GetDeliveryBuffer(IMediaSample** pSample, BYTE** pData);
-	HRESULT Deliver(const BYTE* pBuff, const size_t size, const REFERENCE_TIME rtStartInput, const SampleFormat sfmt, const DWORD nSamplesPerSec, const WORD nChannels, DWORD dwChannelMask = 0);
+	bool HasSpatialDestination() const;
+	HRESULT Deliver(const BYTE* pBuff, const size_t size, const REFERENCE_TIME rtStartInput, const SampleFormat sfmt, const DWORD nSamplesPerSec, const WORD nChannels, DWORD dwChannelMask = 0, bool spatial = false);
 	HRESULT DeliverBitstream(BYTE* pBuff, const int size, const REFERENCE_TIME rtStartInput, const WORD type, const int sample_rate, const int samples);
 	HRESULT ReconnectOutput(int nSamples, CMediaType& mt);
-	CMediaType CreateMediaType(MPCSampleFormat sf, DWORD nSamplesPerSec, WORD nChannels, DWORD dwChannelMask = 0);
+	CMediaType CreateMediaType(MPCSampleFormat sf, DWORD nSamplesPerSec, WORD nChannels, DWORD dwChannelMask = 0, bool spatial = false);
 	CMediaType CreateMediaTypeSPDIF(DWORD nSamplesPerSec = 48000);
 	CMediaType CreateMediaTypeHDMI(WORD type);
 

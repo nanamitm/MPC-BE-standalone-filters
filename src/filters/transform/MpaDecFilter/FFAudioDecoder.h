@@ -23,6 +23,7 @@
 #include "PaddedBuffer.h"
 #include "AudioTools/SampleFormat.h"
 #include "AudioTools/Mixer.h"
+#include "AudioTools/SpatialPCM.h"
 
 struct AVCodec;
 struct AVCodecContext;
@@ -62,6 +63,10 @@ private:
 	bool m_bNeedReinit    = false;
 
 	bool m_bNeedMix       = false;
+	bool m_spatialOutput = false;
+	bool m_spatialFrame = false;
+	MpcSpatial::PCMConverter m_spatialConverter;
+	std::vector<uint8_t> m_spatialBuffer;
 	int m_MixerSamplerate = 0;
 	int m_MixerChannels   = 0;
 	uint64_t m_MixerChannelLayout = 0;
@@ -74,6 +79,10 @@ public:
 
 	bool    Init(enum AVCodecID codecID, CMediaType* mediaType);
 	void    SetDRC(bool bDRC);
+	void SetSpatialOutput(bool enabled) {
+		if (m_spatialOutput != enabled) { m_spatialOutput=enabled; m_bNeedReinit=(m_pAVCtx!=nullptr); }
+	}
+	bool IsSpatialFrame() const { return m_spatialFrame; }
 	void    SetStereoDownmix(bool bStereoDownmix);
 
 	HRESULT RealPrepare(BYTE* p, int buffsize, CPaddedBuffer& BuffOut);

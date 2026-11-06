@@ -37,6 +37,7 @@ extern "C" {
 	#include <ExtLib/ffmpeg/libavcodec/avcodec.h>
 }
 #include "AudioDecoders.h"
+#include "filters/renderer/MpcAudioRenderer/SpatialAudioFormat.h"
 
 // option names
 #define OPT_REGKEY_MpaDec   L"Software\\nanamitm Filters\\MPC Audio Decoder"
@@ -220,6 +221,7 @@ const AMOVIESETUP_MEDIATYPE sudPinTypesIn[] = {
 #ifdef REGISTER_FILTER
 
 const AMOVIESETUP_MEDIATYPE sudPinTypesOut[] = {
+	{&MEDIATYPE_Audio, &MEDIASUBTYPE_MPC_22POINT2},
 	{&MEDIATYPE_Audio, &MEDIASUBTYPE_PCM},
 	{&MEDIATYPE_Audio, &MEDIASUBTYPE_IEEE_FLOAT},
 };
@@ -784,6 +786,7 @@ HRESULT CMpaDecFilter::ProcessHdmvLPCM() // Blu ray LPCM
 
 HRESULT CMpaDecFilter::ProcessFFmpeg(enum AVCodecID nCodecId, BOOL bEOF/* = FALSE*/)
 {
+	m_FFAudioDec.SetSpatialOutput(HasSpatialDestination());
 	HRESULT hr = S_OK;
 
 	if (m_FFAudioDec.GetCodecId() == AV_CODEC_ID_NONE) {
@@ -808,7 +811,7 @@ HRESULT CMpaDecFilter::ProcessFFmpeg(enum AVCodecID nCodecId, BOOL bEOF/* = FALS
 			while (S_OK == (hr = m_FFAudioDec.ReceiveData(m_FFAudioDecodedBuffer, decodedSize, samplefmt, rtStart))) {
 				if (decodedSize) {
 					hr = Deliver(m_FFAudioDecodedBuffer.data(), decodedSize, rtStart, samplefmt,
-								 m_FFAudioDec.GetSampleRate(), m_FFAudioDec.GetChannels(), m_FFAudioDec.GetChannelMask());
+								 m_FFAudioDec.GetSampleRate(), m_FFAudioDec.GetChannels(), m_FFAudioDec.GetChannelMask(), m_FFAudioDec.IsSpatialFrame());
 				}
 			}
 		}
@@ -853,7 +856,7 @@ HRESULT CMpaDecFilter::ProcessFFmpeg(enum AVCodecID nCodecId, BOOL bEOF/* = FALS
 			while (S_OK == (hr = m_FFAudioDec.ReceiveData(m_FFAudioDecodedBuffer, decodedSize, samplefmt, rtStart))) {
 				if (decodedSize) {
 					hr = Deliver(m_FFAudioDecodedBuffer.data(), decodedSize, rtStart, samplefmt,
-								 m_FFAudioDec.GetSampleRate(), m_FFAudioDec.GetChannels(), m_FFAudioDec.GetChannelMask());
+								 m_FFAudioDec.GetSampleRate(), m_FFAudioDec.GetChannels(), m_FFAudioDec.GetChannelMask(), m_FFAudioDec.IsSpatialFrame());
 				}
 			}
 		} else {
@@ -1616,20 +1619,30 @@ HRESULT CMpaDecFilter::GetDeliveryBuffer(IMediaSample** pSample, BYTE** pData)
 	return S_OK;
 }
 
-HRESULT CMpaDecFilter::Deliver(const BYTE* pBuff, const size_t size, const REFERENCE_TIME rtStartInput, const SampleFormat sfmt, const DWORD nSamplesPerSec, const WORD nChannels, DWORD dwChannelMask/* = 0*/)
+bool CMpaDecFilter::HasSpatialDestination() const
+{
+ if (!m_pOutput || !m_pOutput->IsConnected()) return false;
+ PIN_INFO info{};
+ if (FAILED(m_pOutput->GetConnected()->QueryPinInfo(&info)) || !info.pFilter) return false;
+ CComPtr<IBaseFilter> filter; filter.Attach(info.pFilter);
+ CComQIPtr<IMpcAudioRendererSpatial> spatial(filter);
+ return spatial && spatial->GetSpatialMode() != MPC_SPATIAL_UNAVAILABLE;
+}
+
+HRESULT CMpaDecFilter::Deliver(const BYTE* pBuff, const size_t size, const REFERENCE_TIME rtStartInput, const SampleFormat sfmt, const DWORD nSamplesPerSec, const WORD nChannels, DWORD dwChannelMask/* = 0*/, bool spatial)
 {
 	if (m_bFlushing) {
 		return S_FALSE;
 	}
 
-	if (dwChannelMask == 0) {
+	if (!spatial && dwChannelMask == 0) {
 		dwChannelMask = GetDefChannelMask(nChannels);
 	}
-	ASSERT(nChannels == av_popcount(dwChannelMask));
+	ASSERT(spatial || nChannels == av_popcount(dwChannelMask));
 
 	m_InternalSampleFormat = sfmt;
 
-	if (m_bBitstreamSupported[SPDIF] && GetSPDIF(ac3enc) && nChannels > 2) { // do not encode mono and stereo
+	if (!spatial && m_bBitstreamSupported[SPDIF] && GetSPDIF(ac3enc) && nChannels > 2) { // do not encode mono and stereo
 		return AC3Encode(pBuff, size, rtStartInput, sfmt, nSamplesPerSec, nChannels, dwChannelMask);
 	}
 
@@ -1658,10 +1671,10 @@ HRESULT CMpaDecFilter::Deliver(const BYTE* pBuff, const size_t size, const REFER
 		return S_OK;
 	}
 
-	MPCSampleFormat out_mpcsf = SelectOutputFormat(SamplefmtToMPC[sfmt]);
+	MPCSampleFormat out_mpcsf = spatial ? SF_FLOAT : SelectOutputFormat(SamplefmtToMPC[sfmt]);
 	const SampleFormat out_sf = MPCtoSamplefmt[out_mpcsf];
 
-	CMediaType mt = CreateMediaType(out_mpcsf, nSamplesPerSec, nChannels, dwChannelMask);
+	CMediaType mt = CreateMediaType(out_mpcsf, nSamplesPerSec, nChannels, dwChannelMask, spatial);
 	WAVEFORMATEX* wfe = (WAVEFORMATEX*)mt.Format();
 
 	HRESULT hr;
@@ -1950,7 +1963,7 @@ HRESULT CMpaDecFilter::ReconnectOutput(int nSamples, CMediaType& mt)
 	return S_FALSE;
 }
 
-CMediaType CMpaDecFilter::CreateMediaType(MPCSampleFormat mpcsf, DWORD nSamplesPerSec, WORD nChannels, DWORD dwChannelMask)
+CMediaType CMpaDecFilter::CreateMediaType(MPCSampleFormat mpcsf, DWORD nSamplesPerSec, WORD nChannels, DWORD dwChannelMask, bool spatial)
 {
 	CMediaType mt;
 
@@ -1991,7 +2004,7 @@ CMediaType CMpaDecFilter::CreateMediaType(MPCSampleFormat mpcsf, DWORD nSamplesP
 		wfex.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
 		wfex.Format.cbSize = sizeof(wfex) - sizeof(wfex.Format); // 22
 		wfex.Samples.wValidBitsPerSample = wfex.Format.wBitsPerSample;
-		if (dwChannelMask == 0) {
+		if (!spatial && dwChannelMask == 0) {
 			dwChannelMask = GetDefChannelMask(nChannels);
 		}
 		wfex.dwChannelMask = dwChannelMask;
@@ -1999,6 +2012,7 @@ CMediaType CMpaDecFilter::CreateMediaType(MPCSampleFormat mpcsf, DWORD nSamplesP
 
 		mt.SetFormat((BYTE*)&wfex, sizeof(wfex));
 	}
+	if (spatial) mt.subtype = MEDIASUBTYPE_MPC_22POINT2;
 	mt.SetSampleSize(wfex.Format.nBlockAlign);
 
 	return mt;
@@ -2209,11 +2223,10 @@ HRESULT CMpaDecFilter::CheckInputType(const CMediaType* mtIn)
 
 HRESULT CMpaDecFilter::CheckTransform(const CMediaType* mtIn, const CMediaType* mtOut)
 {
-	return SUCCEEDED(CheckInputType(mtIn))
-		   && mtOut->majortype == MEDIATYPE_Audio && mtOut->subtype == MEDIASUBTYPE_PCM
-		   || mtOut->majortype == MEDIATYPE_Audio && mtOut->subtype == MEDIASUBTYPE_IEEE_FLOAT
-		   ? S_OK
-		   : VFW_E_TYPE_NOT_ACCEPTED;
+ if (FAILED(CheckInputType(mtIn)) || mtOut->majortype != MEDIATYPE_Audio) return VFW_E_TYPE_NOT_ACCEPTED;
+ if (mtOut->subtype == MEDIASUBTYPE_MPC_22POINT2)
+  return m_FFAudioDec.IsSpatialFrame() && MpcSpatial::ValidFormat(reinterpret_cast<const WAVEFORMATEX*>(mtOut->pbFormat),mtOut->cbFormat)?S_OK:VFW_E_TYPE_NOT_ACCEPTED;
+ return mtOut->subtype==MEDIASUBTYPE_PCM || mtOut->subtype==MEDIASUBTYPE_IEEE_FLOAT?S_OK:VFW_E_TYPE_NOT_ACCEPTED;
 }
 
 HRESULT CMpaDecFilter::DecideBufferSize(IMemAllocator* pAllocator, ALLOCATOR_PROPERTIES* pProperties)
@@ -2288,7 +2301,7 @@ HRESULT CMpaDecFilter::GetMediaType(int iPosition, CMediaType* pmt)
 
 	AVCodecID codecID = m_FFAudioDec.GetCodecId();
 	if (codecID != AV_CODEC_ID_NONE) {
-		out_mpcsf      = SelectOutputFormat(SamplefmtToMPC[m_FFAudioDec.GetSampleFmt()]);
+		out_mpcsf      = m_FFAudioDec.IsSpatialFrame() ? SF_FLOAT : SelectOutputFormat(SamplefmtToMPC[m_FFAudioDec.GetSampleFmt()]);
 		out_samplerate = m_FFAudioDec.GetSampleRate();
 		out_channels   = m_FFAudioDec.GetChannels();
 		out_layout     = m_FFAudioDec.GetChannelMask();
@@ -2323,7 +2336,7 @@ HRESULT CMpaDecFilter::GetMediaType(int iPosition, CMediaType* pmt)
 		}
 	}
 
-	*pmt = CreateMediaType(out_mpcsf, out_samplerate, out_channels, out_layout);
+	*pmt = CreateMediaType(out_mpcsf, out_samplerate, out_channels, out_layout, m_FFAudioDec.IsSpatialFrame());
 
 	return S_OK;
 }
