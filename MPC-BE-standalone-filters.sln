@@ -37,6 +37,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libbs2b", "src\ExtLib\libbs
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MpcAudioRenderer", "src\filters\renderer\MpcAudioRenderer\MpcAudioRenderer.vcxproj", "{D0620EF4-1313-40D5-9069-A82F6FE26994}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MpaDecFilter", "src\filters\transform\MpaDecFilter\MpaDecFilter.vcxproj", "{4421516D-10A6-41C1-ADF3-099573BBB0C6}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DeCSSFilterStatic", "src\filters\transform\DeCSSFilter\DeCSSFilterStatic.vcxproj", "{4B065C3D-054E-4F95-9A74-4E53E9DF7144}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug Filter|Win32 = Debug Filter|Win32
@@ -45,6 +49,22 @@ Global
 		Release Filter|x64 = Release Filter|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4B065C3D-054E-4F95-9A74-4E53E9DF7144}.Debug Filter|Win32.ActiveCfg = Debug|Win32
+		{4B065C3D-054E-4F95-9A74-4E53E9DF7144}.Debug Filter|Win32.Build.0 = Debug|Win32
+		{4B065C3D-054E-4F95-9A74-4E53E9DF7144}.Debug Filter|x64.ActiveCfg = Debug|x64
+		{4B065C3D-054E-4F95-9A74-4E53E9DF7144}.Debug Filter|x64.Build.0 = Debug|x64
+		{4B065C3D-054E-4F95-9A74-4E53E9DF7144}.Release Filter|Win32.ActiveCfg = Release|Win32
+		{4B065C3D-054E-4F95-9A74-4E53E9DF7144}.Release Filter|Win32.Build.0 = Release|Win32
+		{4B065C3D-054E-4F95-9A74-4E53E9DF7144}.Release Filter|x64.ActiveCfg = Release|x64
+		{4B065C3D-054E-4F95-9A74-4E53E9DF7144}.Release Filter|x64.Build.0 = Release|x64
+		{4421516D-10A6-41C1-ADF3-099573BBB0C6}.Debug Filter|Win32.ActiveCfg = Debug Filter|Win32
+		{4421516D-10A6-41C1-ADF3-099573BBB0C6}.Debug Filter|Win32.Build.0 = Debug Filter|Win32
+		{4421516D-10A6-41C1-ADF3-099573BBB0C6}.Debug Filter|x64.ActiveCfg = Debug Filter|x64
+		{4421516D-10A6-41C1-ADF3-099573BBB0C6}.Debug Filter|x64.Build.0 = Debug Filter|x64
+		{4421516D-10A6-41C1-ADF3-099573BBB0C6}.Release Filter|Win32.ActiveCfg = Release Filter|Win32
+		{4421516D-10A6-41C1-ADF3-099573BBB0C6}.Release Filter|Win32.Build.0 = Release Filter|Win32
+		{4421516D-10A6-41C1-ADF3-099573BBB0C6}.Release Filter|x64.ActiveCfg = Release Filter|x64
+		{4421516D-10A6-41C1-ADF3-099573BBB0C6}.Release Filter|x64.Build.0 = Release Filter|x64
 		{FC70988B-1AE5-4381-866D-4F405E28AC42}.Debug Filter|Win32.ActiveCfg = Debug|Win32
 		{FC70988B-1AE5-4381-866D-4F405E28AC42}.Debug Filter|Win32.Build.0 = Debug|Win32
 		{FC70988B-1AE5-4381-866D-4F405E28AC42}.Debug Filter|x64.ActiveCfg = Debug|x64
