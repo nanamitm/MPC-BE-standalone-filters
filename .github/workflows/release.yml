@@ -3,10 +3,9 @@ name: Build and release standalone filters
 # Standalone-filter distribution for this fork's own fixes/improvements,
 # developed independently of upstream (Aleksoid1978/MPC-BE) - see
 # https://github.com/Aleksoid1978/MPC-BE/pull/1165 for why the first one of
-# these didn't get merged upstream. Builds only MPCVideoDec-fork.ax and
-# MpcAudioRenderer-fork.ax (x64), not the rest of MPC-BE. Both share one
-# version number (include/Version.h + git describe), so one tag releases
-# both, each in its own zip.
+# these didn't get merged upstream. Builds the standalone video decoder,
+# audio renderer, audio decoder and Audio Switcher (x64). All share one
+# version number (include/Version.h + git describe), each in its own zip.
 
 on:
   push:
@@ -49,13 +48,20 @@ jobs:
           .\\build.bat Build x64 Filters Release NoWait
         shell: pwsh
 
+      - name: Test audio decoder and Switcher (no endpoint required)
+        shell: cmd
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath`) do call "%%i\VC\Auxiliary\Build\vcvars64.bat"
+          call tests\run_audio_decoder_tests.cmd _bin\Filters_x64
+
       - name: Stage release files
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          foreach ($name in 'MPCVideoDec-fork', 'MpcAudioRenderer-fork') {
+          foreach ($name in 'MPCVideoDec-fork', 'MpcAudioRenderer-fork', 'MpaDecFilter-fork', 'AudioSwitcher-fork') {
             $package = "dist\$name"
             New-Item -ItemType Directory -Force -Path $package | Out-Null
             Copy-Item "_bin\Filters_x64\$name.ax" $package
+            Copy-Item "LICENSE.txt" $package
             Copy-Item "scripts\Install_${name}_64.cmd" $package
             Copy-Item "scripts\Uninstall_${name}_64.cmd" $package
             Compress-Archive -Path "$package\*" -DestinationPath "dist\$name-x64.zip" -Force
@@ -75,4 +81,6 @@ jobs:
           files: |
             dist\MPCVideoDec-fork-x64.zip
             dist\MpcAudioRenderer-fork-x64.zip
+            dist\MpaDecFilter-fork-x64.zip
+            dist\AudioSwitcher-fork-x64.zip
           generate_release_notes: true

@@ -16,8 +16,8 @@ REM
 REM You should have received a copy of the GNU General Public License
 REM along with this program.  If not, see <http://www.gnu.org/licenses/>.
 REM
-REM This fork only builds standalone filters (MPCVideoDec-fork.ax and
-REM MpcAudioRenderer-fork.ax), not the full MPC-BE player - the "Filter"
+REM This fork builds standalone video/audio decoders, audio renderer and
+REM Audio Switcher filters, not the full MPC-BE player - the "Filter"
 REM configurations of MPC-BE-standalone-filters.sln are the only ones this script (and the
 REM solution) support.
 
@@ -322,8 +322,8 @@ ECHO.
 ECHO Usage:
 ECHO %~nx0 [Clean^|Build^|Rebuild] [x86^|x64^|Both] [Debug^|Release] [Zip] [Sign]
 ECHO.
-ECHO Notes: This fork only builds standalone filters (MPCVideoDec-fork.ax and
-ECHO        MpcAudioRenderer-fork.ax) via the "Filter" configurations of MPC-BE-standalone-filters.sln.
+ECHO Notes: This fork builds standalone video/audio decoders, audio renderer
+ECHO        and Audio Switcher via the "Filter" configurations of MPC-BE-standalone-filters.sln.
 ECHO        The "Filters" keyword is still accepted for compatibility with existing
 ECHO        scripts/CI but has no effect - filters are the only thing this script builds.
 ECHO        You can also prefix the commands with "-", "--" or "/".

@@ -9,6 +9,8 @@ does not build the MPC-BE player itself, only these filters:
 
 - **MPCVideoDec-fork.ax** - the D3D11/DXVA2 hardware video decoder.
 - **MpcAudioRenderer-fork.ax** - the WASAPI audio renderer.
+- **MpaDecFilter-fork.ax** - the audio decoder, including AAC LATM 22.2ch.
+- **AudioSwitcher-fork.ax** - the audio switcher with explicit 22.2ch forwarding.
 
 ## Why this exists
 
@@ -92,9 +94,9 @@ unchanged). An upstream decoder must send:
   `FL FR FC LFE BL BR FLC FRC BC SL SR TC TFL TFC TFR TBL TBC TBR LFE2 TSL TSR BFC BFL BFR`.
 
 Unlabelled 24-channel PCM is rejected: channel count alone does not describe
-speaker positions. LibISDB/TVTest needs a corresponding connection change to
-use this path; installing this filter alone does not enable 22.2ch playback
-from the existing LibISDB output.
+speaker positions. Use the matching LibISDB/TVTest integration or the standalone
+audio decoder described below. Installing the renderer alone cannot change a
+decoder's output format.
 
 #### Validation
 
@@ -113,6 +115,63 @@ The mixer test checks individual impulses on all 24 channels and their normalize
 sum into stereo, 5.1, and 7.1. These tests do not validate perceived spatial
 direction, real broadcast A/V sync, hot-unplug recovery, or long playback.
 
+## Audio decoder and Switcher
+
+The audio decoder and Switcher sources were imported from MPC-BE 1.9.3 master,
+commit `d4bea9283020566866d6bd414b23b6de11d64ff8`. The decoder registers as
+**MPC Audio Decoder (nanamitm)**, CLSID `E0455945-14D5-4CF2-9087-ACB62983F871`,
+with settings under `HKCU\Software\nanamitm Filters\MPC Audio Decoder`.
+The Switcher registers as **MPC Audio Switcher (nanamitm)**, CLSID
+`A7D8300F-4619-40CA-BFF6-7032D52F6EE2`. These CLSIDs are independent of upstream.
+The Switcher uses `MERIT_DO_NOT_USE`; insert it explicitly when needed. It exposes
+the upstream `IAudioSwitcherFilter` API, without its own settings page or
+persistent settings in this standalone build.
+
+In a player that supports choosing external DirectShow filters, select:
+
+```
+AAC / LATM source -> MPC Audio Decoder (nanamitm)
+                 -> [MPC Audio Switcher (nanamitm)]
+                 -> MPC Audio Renderer (nanamitm)
+```
+
+The decoder checks the connected destination's `IMpcAudioRendererSpatial`
+capability at runtime. A known 22.2 speaker layout is reordered into the contract
+above and sent as 24-channel float32 at 48 kHz, resampling when needed. Speaker
+positions are validated, rather than inferred from channel count. An ordinary
+destination receives normalized 7.1 PCM instead. A compatible renderer in
+Downmix mode still receives all 24 channels and chooses its endpoint mix.
+Ordinary layouts and existing bitstream options retain the normal path;
+bitstream output is not decoded into spatial objects.
+
+The Switcher forwards that capability from its connected output. Its
+`GetSpatialMode()` returns `MPC_SPATIAL_UNAVAILABLE` without a compatible
+destination. For the dedicated subtype, it preserves PCM bytes and format,
+applies the configured timestamp offset, and bypasses its mixer, gain,
+normalization, bass redirect, output sample-format settings and audio effects.
+Use renderer volume/balance and downmix settings for this path. Intermediate
+filters must implement the same forwarding contract. An application's built-in
+Switcher or arbitrary processor can prevent 22.2 transport. Applications using
+Media Foundation or built-in decoding do not automatically use these filters.
+
+After building the audio filters and static dependencies into one directory,
+run from an x64 Visual Studio Native Tools prompt:
+
+```bat
+tests\run_audio_decoder_tests.cmd _bin\validation-upstream-x64
+rem Optional silent playback on the current endpoint:
+tests\run_audio_decoder_tests.cmd _bin\validation-upstream-x64 endpoint
+```
+
+Tests generate AAC-LC LOAS/LATM silence (mono, stereo and configuration 13 / 22.2)
+and load the AX files without registration. They check direct and Switcher
+connections, 7.1 fallback, runtime capability changes, and exact nonzero 24ch PCM
+and timestamp preservation with Switcher DSP settings enabled. The converter
+test in `run_spatial_audio_tests.cmd` also checks custom channel order,
+unknown-speaker rejection, 44.1-to-48 kHz resampling and end-of-stream draining.
+Real broadcast playback, perceived direction, A/V sync, application-specific
+filter selection and long playback still need validation.
+
 ## Building
 
 This repository is trimmed to just the source these filters need (FFmpeg,
@@ -123,8 +182,8 @@ BaseClasses, and the filter base classes) - it's not a full MPC-BE checkout.
 build.bat Build x64 Filters Release NoWait
 ```
 
-produces `_bin\Filters_x64\MPCVideoDec-fork.ax` and
-`_bin\Filters_x64\MpcAudioRenderer-fork.ax`. See
+produces `MPCVideoDec-fork.ax`, `MpcAudioRenderer-fork.ax`, `MpaDecFilter-fork.ax`
+and `AudioSwitcher-fork.ax` in `_bin\Filters_x64`. See
 [`.github/workflows/release.yml`](.github/workflows/release.yml)
 for the exact CI recipe (MinGW/GCC toolchain setup for the bundled FFmpeg,
 then an MSVC build of the filters themselves).
@@ -135,6 +194,10 @@ For local registration helpers, use
 and
 [`scripts/Install_MpcAudioRenderer-fork_64.cmd`](scripts/Install_MpcAudioRenderer-fork_64.cmd) /
 [`scripts/Uninstall_MpcAudioRenderer-fork_64.cmd`](scripts/Uninstall_MpcAudioRenderer-fork_64.cmd).
+
+Matching `Install_<filter>_64.cmd` and `Uninstall_<filter>_64.cmd` scripts are
+also provided for the audio decoder and Switcher. Keep each script next to its
+matching AX file; registration requires administrator privileges.
 
 ## License
 

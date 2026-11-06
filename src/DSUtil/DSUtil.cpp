@@ -234,6 +234,7 @@ bool IsAudioWaveRenderer(IBaseFilter* pBF)
 			clsid == CLSID_AudioRender ||
 			// internal
 			clsid == CLSID_MpcAudioRenderer ||
+			clsid == GUIDFromCString(L"{54C37E17-BE59-4ADB-B338-D2F04BD2A0A5}") || // nanamitm renderer
 			clsid == __uuidof(CNullAudioRenderer) ||
 			clsid == __uuidof(CNullUAudioRenderer) ||
 			// external
