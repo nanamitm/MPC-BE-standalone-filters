@@ -64,15 +64,29 @@ jobs:
             Copy-Item "LICENSE.txt" $package
             Copy-Item "scripts\Install_${name}_64.cmd" $package
             Copy-Item "scripts\Uninstall_${name}_64.cmd" $package
-            Compress-Archive -Path "$package\*" -DestinationPath "dist\$name-x64.zip" -Force
+            # Publish only runtime files, registration helpers and the license.
+            # Source headers (including IAudioDualMono.h) are not release assets.
+            $files = @(
+              "$package\$name.ax",
+              "$package\Install_${name}_64.cmd",
+              "$package\Uninstall_${name}_64.cmd",
+              "$package\LICENSE.txt"
+            )
+            Compress-Archive -LiteralPath $files -DestinationPath "dist\$name-x64.zip" -Force
           }
+          Get-ChildItem dist\*.zip | Sort-Object Name | ForEach-Object {
+            $hash = Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256
+            "{0}  {1}" -f $hash.Hash.ToLowerInvariant(), $_.Name
+          } | Set-Content dist\SHA256SUMS.txt -Encoding ascii
         shell: pwsh
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
         with:
           name: filters-x64
-          path: dist\*.zip
+          path: |
+            dist\*.zip
+            dist\SHA256SUMS.txt
 
       - name: Upload release asset
         if: startsWith(github.ref, 'refs/tags/v')
@@ -83,4 +97,5 @@ jobs:
             dist\MpcAudioRenderer-fork-x64.zip
             dist\MpaDecFilter-fork-x64.zip
             dist\AudioSwitcher-fork-x64.zip
+            dist\SHA256SUMS.txt
           generate_release_notes: true
