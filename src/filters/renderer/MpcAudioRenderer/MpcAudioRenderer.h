@@ -33,6 +33,8 @@
 #include <ExtLib/libbs2b/bs2bclass.h>
 
 #include <optional>
+#include <atomic>
+#include "SpatialAudioOutput.h"
 
 #define MpcAudioRendererName L"MPC Audio Renderer (nanamitm)"
 
@@ -52,6 +54,7 @@ class __declspec(uuid("54C37E17-BE59-4ADB-B338-D2F04BD2A0A5"))
 	, public IAMStreamSelect
 	, public ISpecifyPropertyPages2
 	, public IMpcAudioRendererFilter
+	, public IMpcAudioRendererSpatial
 {
 	CCritSec          m_csResampler;
 	CCritSec          m_csRender;
@@ -196,8 +199,20 @@ public:
 	STDMETHODIMP_(BOOL)           GetPauseKeepActive() override;
 	STDMETHODIMP_(float)          GetLowLatencyMS() override;
 
+	STDMETHODIMP SetSpatialMode(INT mode) override;
+	STDMETHODIMP_(INT) GetSpatialMode() override;
+	STDMETHODIMP GetSpatialStatus() override;
+
 	// CMpcAudioRenderer
 private:
+	std::unique_ptr<CSpatialAudioOutput> m_spatial;
+	bool m_is22Point2 = false;
+	bool m_spatialFailed = false;
+	std::atomic<MPC_SPATIAL_MODE> m_spatialMode{MPC_SPATIAL_AUTO};
+	HRESULT m_spatialStatus = S_FALSE;
+	bool HasRenderClient() const { return m_pRenderClient || m_spatial; }
+	HRESULT CheckWasapiClient(const WAVEFORMATEX* format);
+	void CloseSpatial();
 	WAVEFORMATEX*    m_pWaveFormatExInput;
 	WAVEFORMATEX*    m_pWaveFormatExOutput;
 	CAudioSyncClock* m_pSyncClock;
@@ -335,7 +350,7 @@ private:
 
 	struct AudioFormats {
 		SampleFormat sf = SAMPLE_FMT_NONE;
-		DWORD layout    = 0;
+		uint64_t layout = 0;
 		int channels    = 0;
 		int samplerate  = 0;
 	};

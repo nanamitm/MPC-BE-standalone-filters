@@ -23,6 +23,7 @@
 #include "filters/filters/InternalPropertyPage.h"
 #include "AudioDevice.h"
 #include "IMpcAudioRenderer.h"
+#include "SpatialAudioFormat.h"
 #include "resource.h"
 
 class __declspec(uuid("59376AB3-6225-4093-8A62-C6559C1FA997"))
@@ -30,10 +31,13 @@ class __declspec(uuid("59376AB3-6225-4093-8A62-C6559C1FA997"))
 {
 private :
 	CComQIPtr<IMpcAudioRendererFilter> m_pMAR;
+	CComQIPtr<IMpcAudioRendererSpatial> m_pSpatial;
 
 	AudioDevices::deviceList_t m_deviceList;
 
 	CButton		m_output_group;
+	CStatic		m_txtSpatialMode;
+	CComboBox	m_cbSpatialMode;
 	CStatic		m_txtWasapiMode;
 	CComboBox	m_cbWasapiMode;
 	CStatic		m_txtWasapiMethod;
@@ -66,6 +70,7 @@ private :
 		IDC_PP_DUMMY_CHANNELS,
 		IDC_PP_PAUSE_KEEP_ACTIVE,
 		IDC_PP_RESET,
+		IDC_PP_SPATIAL_MODE,
 	};
 
 public:
@@ -79,8 +84,8 @@ public:
 
 	static LPCWSTR GetWindowTitle() { return MAKEINTRESOURCEW(IDS_FILTER_SETTINGS_CAPTION); }
 	// Upstream's 231 clipped the last checkboxes and the Reset button, which
-	// ends at y = 312 (OnActivate()'s layout, in 96 DPI units).
-	static CSize GetWindowSize() { return CSize(340, 322); }
+	// needs another row for the 22.2ch output selector (96 DPI units).
+	static CSize GetWindowSize() { return CSize(340, 347); }
 
 	DECLARE_MESSAGE_MAP()
 
@@ -98,6 +103,7 @@ class __declspec(uuid("DF3E5420-10B3-4F67-BE3E-D7D8F2EEA224"))
 {
 private :
 	CComQIPtr<IMpcAudioRendererFilter> m_pMAR;
+	CComQIPtr<IMpcAudioRendererSpatial> m_pSpatial;
 
 	CStatic		m_txtDevice;
 	CEdit		m_edtDevice;

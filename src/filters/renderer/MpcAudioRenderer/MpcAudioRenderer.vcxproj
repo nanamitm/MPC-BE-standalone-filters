@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="Globals">
     <ProjectGuid>{D0620EF4-1313-40D5-9069-A82F6FE26994}</ProjectGuid>
@@ -90,6 +90,7 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="SpatialAudioOutput.cpp" />
     <ClCompile Include="AudioDevice.cpp" />
     <ClCompile Include="AudioSyncClock.cpp" />
     <ClCompile Include="MpcAudioRenderer.cpp" />
@@ -102,6 +103,8 @@
     <None Include="MpcAudioRenderer.def" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="SpatialAudioFormat.h" />
+    <ClInclude Include="SpatialAudioOutput.h" />
     <ClInclude Include="AudioDevice.h" />
     <ClInclude Include="AudioSyncClock.h" />
     <ClInclude Include="IMpcAudioRenderer.h" />

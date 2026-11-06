@@ -58,6 +58,7 @@ void CMpcAudioRendererSettingsWnd::OnDisconnect()
 
 bool CMpcAudioRendererSettingsWnd::OnActivate()
 {
+	m_pSpatial = m_pMAR;
 	const DWORD dwStyle = WS_VISIBLE | WS_CHILD | WS_TABSTOP;
 	const int h20 = ScaleY(20);
 	const int h25 = ScaleY(25);
@@ -69,6 +70,13 @@ bool CMpcAudioRendererSettingsWnd::OnActivate()
 	p.y += h20;
 	m_cbSoundDevice.Create(dwStyle | CBS_DROPDOWNLIST | WS_VSCROLL, CRect(p, CSize(ScaleX(320), 200)), this, IDC_PP_SOUND_DEVICE);
 	p.y += h35;
+	m_txtSpatialMode.Create(L"22.2ch output", WS_VISIBLE | WS_CHILD, CRect(p, CSize(ScaleX(200), m_fontheight)), this, (UINT)IDC_STATIC);
+	m_cbSpatialMode.Create(dwStyle | CBS_DROPDOWNLIST, CRect(p + CPoint(ScaleX(200), comboOffsetY), CSize(ScaleX(120), 200)), this, IDC_PP_SPATIAL_MODE);
+	m_cbSpatialMode.AddString(L"Spatial / Auto");
+	m_cbSpatialMode.AddString(L"Downmix");
+	m_cbSpatialMode.SetCurSel(m_pSpatial ? m_pSpatial->GetSpatialMode() : MPC_SPATIAL_DISABLED);
+	m_cbSpatialMode.EnableWindow(m_pSpatial != nullptr);
+	p.y += h25;
 
 	m_txtWasapiMode.Create(ResStr(IDS_ARS_WASAPI_MODE), WS_VISIBLE | WS_CHILD, CRect(p, CSize(ScaleX(200), m_fontheight)), this, (UINT)IDC_STATIC);
 	m_cbWasapiMode.Create(dwStyle | CBS_DROPDOWNLIST | WS_VSCROLL, CRect(p + CPoint(ScaleX(200), comboOffsetY), CSize(ScaleX(120), 200)), this, IDC_PP_WASAPI_MODE);
@@ -166,6 +174,7 @@ bool CMpcAudioRendererSettingsWnd::OnActivate()
 
 void CMpcAudioRendererSettingsWnd::OnDeactivate()
 {
+	m_pSpatial.Release();
 }
 
 bool CMpcAudioRendererSettingsWnd::OnApply()
@@ -173,6 +182,8 @@ bool CMpcAudioRendererSettingsWnd::OnApply()
 	OnDeactivate();
 
 	if (m_pMAR) {
+		CComQIPtr<IMpcAudioRendererSpatial> spatial(m_pMAR);
+		if (spatial) spatial->SetSpatialMode(m_cbSpatialMode.GetCurSel());
 		m_pMAR->SetWasapiMode(m_cbWasapiMode.GetCurSel());
 		m_pMAR->SetWasapiMethod(m_cbWasapiMethod.GetCurSel());
 		m_pMAR->SetDevicePeriod(GetCurItemData(m_cbDevicePeriod));
@@ -228,6 +239,7 @@ void CMpcAudioRendererSettingsWnd::OnClickedPauseWhiteNoice()
 
 void CMpcAudioRendererSettingsWnd::OnBnClickedReset()
 {
+	m_cbSpatialMode.SetCurSel(MPC_SPATIAL_AUTO);
 	m_cbWasapiMode.SetCurSel(MODE_WASAPI_SHARED);
 	m_cbWasapiMethod.SetCurSel(WASAPI_METHOD::EVENT);
 	SelectByItemData(m_cbDevicePeriod, 50);
@@ -339,6 +351,12 @@ void CMpcAudioRendererStatusWnd::UpdateStatus()
 			}
 		}
 
+		CComQIPtr<IMpcAudioRendererSpatial> spatial(m_pMAR);
+		if (spatial) {
+			HRESULT result = spatial->GetSpatialStatus();
+			if (result == S_OK) modeStr = L"Windows Spatial Audio (22.2ch), Event";
+			else if (FAILED(result)) modeStr.AppendFormat(L", spatial fallback (0x%08X)", result);
+		}
 		m_edtMode.SetWindowTextW(modeStr);
 
 		if (status == MODE_WASAPI_EXCLUSIVE_BITSTREAM) {
@@ -381,7 +399,8 @@ void CMpcAudioRendererStatusWnd::UpdateStatus()
 					}
 
 					CString sChannel;
-					sChannel.Format(L"%u.%u / 0x%x", nChannels, lfe, layout);
+					if (pwfex->nChannels == 24 && !layout) sChannel = L"22.2 (24ch)";
+					else sChannel.Format(L"%u.%u / 0x%x", nChannels, lfe, layout);
 
 					CString sSampleRate;
 					sSampleRate.Format(L"%u", pwfex->nSamplesPerSec);

@@ -30,6 +30,9 @@
 #include "AudioTools/AudioHelper.h"
 #include "AudioDevice.h"
 #include "MpcAudioRenderer.h"
+extern "C" {
+#include "ExtLib/ffmpeg/libavutil/channel_layout.h"
+}
 
 // MpaDecFilter isn't part of this repository; only its CLSID is needed here.
 #include <FilterInterfaces.h>
@@ -50,6 +53,7 @@ class __declspec(uuid("3D446B6F-71DE-4437-BE15-8CE47174340F")) CMpaDecFilter;
 #define OPT_UseCrossFeed            L"CrossFeed"
 #define OPT_DummyChannels           L"DummyChannels"
 #define OPT_PauseKeepActive         L"PauseKeepActive"
+#define OPT_SpatialMode             L"SpatialMode"
 // TODO: rename option values
 
 // set to 1(or more) to enable more detail debug log
@@ -59,7 +63,8 @@ class __declspec(uuid("3D446B6F-71DE-4437-BE15-8CE47174340F")) CMpaDecFilter;
 
 const AMOVIESETUP_MEDIATYPE sudPinTypesIn[] = {
 	{&MEDIATYPE_Audio, &MEDIASUBTYPE_PCM},
-	{&MEDIATYPE_Audio, &MEDIASUBTYPE_IEEE_FLOAT}
+	{&MEDIATYPE_Audio, &MEDIASUBTYPE_IEEE_FLOAT},
+	{&MEDIATYPE_Audio, &MEDIASUBTYPE_MPC_22POINT2}
 };
 
 const AMOVIESETUP_PIN sudpPins[] = {
@@ -267,6 +272,9 @@ CMpcAudioRenderer::CMpcAudioRenderer(LPUNKNOWN punk, HRESULT *phr)
 		if (ERROR_SUCCESS == key.QueryDWORDValue(OPT_DummyChannels, dw)) {
 			m_bDummyChannels = !!dw;
 		}
+		if (ERROR_SUCCESS == key.QueryDWORDValue(OPT_SpatialMode, dw) && dw <= MPC_SPATIAL_DISABLED) {
+			m_spatialMode = static_cast<MPC_SPATIAL_MODE>(dw);
+		}
 		if (ERROR_SUCCESS == key.QueryDWORDValue(OPT_PauseKeepActive, dw)) {
 			m_bPauseKeepActive = !!dw;
 		}
@@ -284,6 +292,9 @@ CMpcAudioRenderer::CMpcAudioRenderer(LPUNKNOWN punk, HRESULT *phr)
 	profile.ReadInt(OPT_SECTION_AudRend, OPT_ReleaseDeviceIdle, m_bReleaseDeviceIdle);
 	profile.ReadInt(OPT_SECTION_AudRend, OPT_UseCrossFeed, m_bUseCrossFeed);
 	profile.ReadInt(OPT_SECTION_AudRend, OPT_DummyChannels, m_bDummyChannels);
+	int spatialMode = MPC_SPATIAL_AUTO;
+	profile.ReadInt(OPT_SECTION_AudRend, OPT_SpatialMode, spatialMode);
+	m_spatialMode = spatialMode == MPC_SPATIAL_DISABLED ? MPC_SPATIAL_DISABLED : MPC_SPATIAL_AUTO;
 	profile.ReadInt(OPT_SECTION_AudRend, OPT_PauseKeepActive, m_bPauseKeepActive);
 #endif
 
@@ -376,10 +387,10 @@ CMpcAudioRenderer::~CMpcAudioRenderer()
 
 	EndReleaseTimer();
 
+	StopRendererThread();
+	CloseSpatial();
 	m_pSyncClock->UnSlave();
 	SAFE_DELETE(m_pSyncClock);
-
-	StopRendererThread();
 	if (m_bIsAudioClientStarted && m_pAudioClient) {
 		m_pAudioClient->Stop();
 	}
@@ -419,12 +430,19 @@ HRESULT	CMpcAudioRenderer::CheckMediaType(const CMediaType *pmt)
 
 	CheckPointer(pmt, E_POINTER);
 	CheckPointer(pmt->pbFormat, VFW_E_TYPE_NOT_ACCEPTED);
+	if (pmt->cbFormat < sizeof(WAVEFORMATEX)) return VFW_E_TYPE_NOT_ACCEPTED;
 
 	if ((pmt->majortype != MEDIATYPE_Audio) || (pmt->formattype != FORMAT_WaveFormatEx)) {
 		DLog(L"CMpcAudioRenderer::CheckMediaType() - Not supported");
 		return VFW_E_TYPE_NOT_ACCEPTED;
 	}
 
+	if (pmt->subtype == MEDIASUBTYPE_MPC_22POINT2) {
+		return MpcSpatial::ValidFormat(reinterpret_cast<const WAVEFORMATEX*>(pmt->pbFormat), pmt->cbFormat)
+			? S_OK : VFW_E_TYPE_NOT_ACCEPTED;
+	}
+	// Channel count alone cannot identify the speaker positions.
+	if (reinterpret_cast<const WAVEFORMATEX*>(pmt->pbFormat)->nChannels > 18) return VFW_E_TYPE_NOT_ACCEPTED;
 	if (pmt->subtype != MEDIASUBTYPE_PCM && pmt->subtype != MEDIASUBTYPE_IEEE_FLOAT) {
 		DLog(L"CMpcAudioRenderer::CheckMediaType() - allow only PCM/IEEE_FLOAT input");
 		return VFW_E_TYPE_NOT_ACCEPTED;
@@ -491,7 +509,7 @@ HRESULT CMpcAudioRenderer::Receive(IMediaSample* pSample)
 		Ready();
 	}
 
-	Transform(pSample);
+	hr = Transform(pSample);
 
 	m_bInReceive = FALSE;
 
@@ -506,7 +524,7 @@ HRESULT CMpcAudioRenderer::Receive(IMediaSample* pSample)
 	SendEndOfStream();
 	CancelNotification();
 
-	return S_OK;
+	return FAILED(hr) ? hr : S_OK;
 }
 
 STDMETHODIMP CMpcAudioRenderer::NonDelegatingQueryInterface(REFIID riid, void **ppv)
@@ -527,6 +545,8 @@ STDMETHODIMP CMpcAudioRenderer::NonDelegatingQueryInterface(REFIID riid, void **
 		return GetInterface(static_cast<ISpecifyPropertyPages*>(this), ppv);
 	} else if (riid == __uuidof(ISpecifyPropertyPages2)) {
 		return GetInterface(static_cast<ISpecifyPropertyPages2*>(this), ppv);
+	} else if (riid == __uuidof(IMpcAudioRendererSpatial)) {
+		return GetInterface(static_cast<IMpcAudioRendererSpatial*>(this), ppv);
 	} else if (riid == __uuidof(IMpcAudioRendererFilter)) {
 		return GetInterface(static_cast<IMpcAudioRendererFilter*>(this), ppv);
 	}
@@ -537,6 +557,8 @@ STDMETHODIMP CMpcAudioRenderer::NonDelegatingQueryInterface(REFIID riid, void **
 HRESULT CMpcAudioRenderer::SetMediaType(const CMediaType *pmt)
 {
 	CheckPointer(pmt, E_POINTER);
+	HRESULT validation = CheckMediaType(pmt);
+	if (FAILED(validation)) return validation;
 
 	WAVEFORMATEX *pwf = (WAVEFORMATEX *)pmt->Format();
 	CheckPointer(pwf, VFW_E_TYPE_NOT_ACCEPTED);
@@ -548,6 +570,18 @@ HRESULT CMpcAudioRenderer::SetMediaType(const CMediaType *pmt)
 		return VFW_E_TYPE_NOT_ACCEPTED;
 	}
 
+	// A new media type invalidates both queued samples and the old backend.
+	PauseRendererThread();
+	{
+		CAutoLock lock(&m_csRender);
+		CloseSpatial();
+		WasapiFlush();
+		SAFE_DELETE_ARRAY(m_pWaveFormatExOutput);
+		m_is22Point2 = pmt->subtype == MEDIASUBTYPE_MPC_22POINT2;
+		m_DeviceModeCurrent = m_DeviceMode;
+		m_spatialFailed = false;
+		m_spatialStatus = S_FALSE;
+	}
 	HRESULT hr = S_OK;
 
 	if (!m_pAudioClient) {
@@ -639,6 +673,8 @@ DWORD CMpcAudioRenderer::RenderThread()
 
 	HRESULT hr = S_OK;
 
+	const HRESULT com = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+
 	// These are wait handles for the thread stopping, pausing redering and new sample arrival
 	HANDLE renderHandles[3] = {
 		m_hStopRenderThreadEvent,
@@ -672,7 +708,7 @@ DWORD CMpcAudioRenderer::RenderThread()
 		CheckBufferStatus();
 
 		DWORD result = -1;
-		if (m_WasapiMethod == WASAPI_METHOD::PUSH) {
+		if (!m_spatial && m_WasapiMethod == WASAPI_METHOD::PUSH) {
 			HRESULT hr = RenderWasapiBuffer();
 			if (hr == AUDCLNT_E_DEVICE_INVALIDATED) {
 				SetReinitializeAudioDevice(TRUE);
@@ -685,7 +721,7 @@ DWORD CMpcAudioRenderer::RenderThread()
 
 		switch (result) {
 			case WAIT_TIMEOUT: // timed out after a 1 second wait
-				if (m_WasapiMethod == WASAPI_METHOD::EVENT && m_pRenderClient) {
+				if (HasRenderClient() && (m_spatial || m_WasapiMethod == WASAPI_METHOD::EVENT)) {
 					SetReinitializeAudioDevice(TRUE);
 				}
 				break;
@@ -748,6 +784,7 @@ DWORD CMpcAudioRenderer::RenderThread()
 		}
 	}
 
+	if (SUCCEEDED(com)) CoUninitialize();
 	if (hTaskHandle != nullptr) {
 		pfAvRevertMmThreadCharacteristics(hTaskHandle);
 	}
@@ -971,6 +1008,7 @@ STDMETHODIMP CMpcAudioRenderer::SetRate(double dRate)
 		return VFW_E_UNSUPPORTED_AUDIO;
 	}
 
+	if (m_is22Point2 && m_dRate != dRate) SetReinitializeAudioDevice();
 	m_dRate = dRate;
 	return S_OK;
 }
@@ -1138,6 +1176,7 @@ STDMETHODIMP CMpcAudioRenderer::Apply()
 		key.SetDWORDValue(OPT_ReleaseDeviceIdle, m_bReleaseDeviceIdle);
 		key.SetDWORDValue(OPT_UseCrossFeed, m_bUseCrossFeed);
 		key.SetDWORDValue(OPT_DummyChannels, m_bDummyChannels);
+		key.SetDWORDValue(OPT_SpatialMode, m_spatialMode);
 		key.SetDWORDValue(OPT_PauseKeepActive, m_bPauseKeepActive);
 	}
 #else
@@ -1153,6 +1192,7 @@ STDMETHODIMP CMpcAudioRenderer::Apply()
 	profile.WriteInt(OPT_SECTION_AudRend, OPT_ReleaseDeviceIdle, m_bReleaseDeviceIdle);
 	profile.WriteInt(OPT_SECTION_AudRend, OPT_UseCrossFeed, m_bUseCrossFeed);
 	profile.WriteInt(OPT_SECTION_AudRend, OPT_DummyChannels, m_bDummyChannels);
+	profile.WriteInt(OPT_SECTION_AudRend, OPT_SpatialMode, m_spatialMode);
 	profile.WriteInt(OPT_SECTION_AudRend, OPT_PauseKeepActive, m_bPauseKeepActive);
 #endif
 
@@ -1478,10 +1518,12 @@ HRESULT CMpcAudioRenderer::Transform(IMediaSample *pMediaSample)
 	}
 
 	if (m_bNeedReinitializeFull) {
-		ReinitializeAudioDevice(TRUE);
+		HRESULT hr = ReinitializeAudioDevice(TRUE);
+		if (FAILED(hr)) return hr;
 	}
 	if (m_bNeedReinitialize) {
-		ReinitializeAudioDevice();
+		HRESULT hr = ReinitializeAudioDevice();
+		if (FAILED(hr)) return hr;
 	}
 
 	CheckBufferStatus();
@@ -1513,18 +1555,19 @@ HRESULT CMpcAudioRenderer::Transform(IMediaSample *pMediaSample)
 	}
 
 	CheckPointer(m_pWaveFormatExInput, S_FALSE);
+	if (lSize < 0 || lSize % m_pWaveFormatExInput->nBlockAlign) return E_INVALIDARG;
 
 	m_rtLastReceivedSampleTimeEnd = rtStart + SamplesToTime(lSize / m_pWaveFormatExInput->nBlockAlign, m_pWaveFormatExInput) / m_dRate;
 
-	if (!m_pRenderClient) {
+	if (!HasRenderClient()) {
 		if (!m_pAudioClient) {
 			InitAudioClient();
 		}
-		if (!m_pRenderClient && m_pAudioClient) {
+		if (!HasRenderClient() && m_pAudioClient) {
 			CheckAudioClient(m_pWaveFormatExInput);
 		}
 
-		if (!m_pRenderClient) {
+		if (!HasRenderClient()) {
 			m_bReleased = false;
 
 			m_rtNextRenderedSampleTime = rtStart + SamplesToTime(lSize / m_pWaveFormatExInput->nBlockAlign, m_pWaveFormatExInput) / m_dRate;
@@ -1577,7 +1620,14 @@ HRESULT CMpcAudioRenderer::Transform(IMediaSample *pMediaSample)
 	std::unique_ptr<BYTE[]> pChangedBuffer;
 
 	if (m_bUpdateBalanceMask) {
-		SetBalanceMask(m_output_params.layout);
+		SetBalanceMask(static_cast<DWORD>(m_output_params.layout));
+		if (m_spatial) {
+			m_dwBalanceMask = 0;
+			for (unsigned ch = 0; ch < MpcSpatial::Channels; ch++) {
+				const auto x = MpcSpatial::Positions[ch].x;
+				if ((m_lBalance < 0 && x > 0) || (m_lBalance > 0 && x < 0)) m_dwBalanceMask |= 1u << ch;
+			}
+		}
 		m_bUpdateBalanceMask = false;
 	}
 
@@ -1605,7 +1655,7 @@ HRESULT CMpcAudioRenderer::Transform(IMediaSample *pMediaSample)
 
 			CAutoLock cResamplerLock(&m_csResampler);
 
-			m_Resampler.SetOptions(1.0, 1.0, false, !!m_bDummyChannels);
+			m_Resampler.SetOptions(1.0, 1.0, m_is22Point2, !m_is22Point2 && !!m_bDummyChannels);
 			m_Resampler.UpdateInput(m_input_params.sf, m_input_params.layout, m_input_params.samplerate);
 			m_Resampler.UpdateOutput(m_output_params.sf, m_output_params.layout, m_output_params.samplerate);
 			out_samples = m_Resampler.CalcOutSamples(in_samples);
@@ -1783,7 +1833,7 @@ HRESULT CMpcAudioRenderer::SetupAudioFilter()
 		return S_FALSE;
 	}
 
-	if (m_dRate == 1.0 || m_dRate < 0.25 || m_dRate > 100.0) {
+	if (m_spatial || m_dRate == 1.0 || m_dRate < 0.25 || m_dRate > 100.0) {
 		FlushAudioFilter();
 		return E_INVALIDARG;
 	}
@@ -1931,7 +1981,98 @@ HRESULT CMpcAudioRenderer::CreateAudioClient(const BOOL bForceUseDefaultDevice/*
 	return hr;
 }
 
-HRESULT CMpcAudioRenderer::CheckAudioClient(const WAVEFORMATEX *pWaveFormatEx)
+void CMpcAudioRenderer::CloseSpatial()
+{
+	if (m_spatial) {
+		m_pSyncClock->UnSlave();
+		m_spatial.reset();
+		if (m_spatialStatus == S_OK) m_spatialStatus = S_FALSE;
+		SAFE_RELEASE(m_pAudioClock);
+		m_bIsAudioClientStarted = false;
+	}
+}
+
+STDMETHODIMP CMpcAudioRenderer::SetSpatialMode(INT mode)
+{
+	if (mode != MPC_SPATIAL_AUTO && mode != MPC_SPATIAL_DISABLED) return E_INVALIDARG;
+	CAutoLock lock(&m_csProps);
+	if (m_spatialMode != mode) {
+		m_spatialMode = static_cast<MPC_SPATIAL_MODE>(mode);
+		SetReinitializeAudioDevice(TRUE);
+	}
+	return S_OK;
+}
+
+STDMETHODIMP_(INT) CMpcAudioRenderer::GetSpatialMode()
+{
+	CAutoLock lock(&m_csProps);
+	return m_spatialMode;
+}
+
+STDMETHODIMP CMpcAudioRenderer::GetSpatialStatus()
+{
+	CAutoLock lock(&m_csRender);
+	return m_spatial && !m_spatialFailed ? S_OK : m_spatialStatus;
+}
+
+HRESULT CMpcAudioRenderer::CheckAudioClient(const WAVEFORMATEX* format)
+{
+	if (!m_is22Point2) return CheckWasapiClient(format);
+	if (m_spatial) return S_OK;
+	if (!m_pWaveFormatExOutput || !m_pRenderClient) {
+		PauseRendererThread();
+		{
+			CAutoLock lock(&m_csRender);
+			m_pSyncClock->UnSlave();
+			if (m_bIsAudioClientStarted && m_pAudioClient) m_pAudioClient->Stop();
+			m_bIsAudioClientStarted = false;
+			SAFE_RELEASE(m_pRenderClient);
+			SAFE_RELEASE(m_pAudioClock);
+			WasapiFlush();
+			FlushAudioFilter();
+			m_bs2b_active = false;
+			if (m_spatialMode == MPC_SPATIAL_AUTO && !m_spatialFailed && m_dRate == 1.0) {
+				HRESULT hr = m_pMMDevice ? S_OK : GetAudioDevice(FALSE);
+				auto output = std::make_unique<CSpatialAudioOutput>();
+				if (SUCCEEDED(hr)) hr = output->Open(m_pMMDevice, m_hDataEvent, &m_pAudioClock);
+				m_spatialStatus = hr;
+				if (SUCCEEDED(hr)) {
+					SAFE_RELEASE(m_pAudioClient);
+					m_spatial = std::move(output);
+					WAVEFORMATEXTENSIBLE w = {};
+					w.Format = { WAVE_FORMAT_EXTENSIBLE, 24, 48000, 48000*24*4, 24*4, 32, 22 };
+					w.Samples.wValidBitsPerSample = 32;
+					w.SubFormat = MEDIASUBTYPE_IEEE_FLOAT;
+					CopyWaveFormat(format, &m_pWaveFormatExInput);
+					CopyWaveFormat(&w.Format, &m_pWaveFormatExOutput);
+					m_input_params = { format->wBitsPerSample == 16 ? SAMPLE_FMT_S16 : SAMPLE_FMT_FLT, AV_CH_LAYOUT_22POINT2, 24, 48000 };
+					m_output_params = { SAMPLE_FMT_FLT, AV_CH_LAYOUT_22POINT2, 24, 48000 };
+					m_bIsBitstream = FALSE;
+					m_BitstreamMode = BITSTREAM_NONE;
+					m_nFramesInBuffer = 480;
+					m_hnsBufferDuration = 100000;
+					m_nMaxWasapiQueueSize = 48000 * 24 * sizeof(float) / 5;
+					m_bUpdateBalanceMask = true;
+					m_bReleased = false;
+					m_fLowLatencyMS = 0;
+					return StartRendererThread();
+				}
+				SAFE_RELEASE(m_pAudioClock);
+				m_spatialFailed = true;
+				DLog(L"Spatial output unavailable (0x%08x); downmixing to WASAPI", hr);
+			} else if (m_spatialMode == MPC_SPATIAL_DISABLED || m_dRate != 1.0) {
+				m_spatialStatus = S_FALSE;
+			}
+		}
+	}
+	// 24 speakers cannot be expressed by a Windows DWORD speaker mask.
+	// Decode with the full 64-bit mask, normalize and downmix to the endpoint.
+	// Shared fallback avoids exclusive 24ch negotiation and keeps settings intact.
+	m_DeviceModeCurrent = MODE_WASAPI_SHARED;
+	return CheckWasapiClient(format);
+}
+
+HRESULT CMpcAudioRenderer::CheckWasapiClient(const WAVEFORMATEX *pWaveFormatEx)
 {
 	CAutoLock cAutoLock(&m_csCheck);
 	CAutoLock cRenderLock(&m_csRender);
@@ -2239,6 +2380,7 @@ again:
 		};
 
 		FillFormats(m_pWaveFormatExInput, m_input_params, true);
+		if (m_is22Point2) m_input_params.layout = AV_CH_LAYOUT_22POINT2;
 		FillFormats(m_pWaveFormatExOutput, m_output_params, false);
 
 		if (m_bUseCrossFeed) {
@@ -2824,8 +2966,19 @@ void CMpcAudioRenderer::CreateFormat(WAVEFORMATEXTENSIBLE& wfex,
 
 HRESULT CMpcAudioRenderer::StartAudioClient()
 {
+	CAutoLock lock(&m_csRender);
 	HRESULT hr = S_OK;
 
+	if (m_spatial) {
+		if (!m_bIsAudioClientStarted) {
+			hr = m_spatial->Start();
+			if (FAILED(hr)) { m_spatialStatus = hr; m_spatialFailed = true; SetReinitializeAudioDevice(); return hr; }
+			m_bIsAudioClientStarted = true;
+			if (m_filterState == State_Running && m_pAudioClock)
+				m_pSyncClock->Slave(m_pAudioClock, m_rtStartTime + m_rtCurrentRenderedTime);
+		}
+		return hr;
+	}
 	if (m_pAudioClient) {
 		if (!m_bIsAudioClientStarted) {
 			DLog(L"CMpcAudioRenderer::StartAudioClient()");
@@ -2868,6 +3021,8 @@ HRESULT CMpcAudioRenderer::ReinitializeAudioDevice(BOOL bFullInitialization/* = 
 	PauseRendererThread();
 
 	CAutoLock cRenderLock(&m_csRender);
+	CloseSpatial();
+	if (bFullInitialization) m_spatialFailed = false;
 
 	if (m_bIsAudioClientStarted && m_pAudioClient) {
 		m_pAudioClient->Stop();
@@ -3008,15 +3163,13 @@ void CMpcAudioRenderer::FillPauseWhiteNoise(BYTE* pData, UINT32 nBytes)
 
 HRESULT CMpcAudioRenderer::RenderWasapiBuffer()
 {
-	CheckPointer(m_pRenderClient, S_OK);
-	CheckPointer(m_pWaveFormatExOutput, S_OK);
-
 	CAutoLock cRenderLock(&m_csRender);
+	if (!HasRenderClient() || !m_pWaveFormatExOutput) return S_OK;
 
 	HRESULT hr = S_OK;
 
 	UINT32 numFramesPadding = 0;
-	if ((m_DeviceModeCurrent == MODE_WASAPI_SHARED && !m_bIsBitstream) || m_WasapiMethod == WASAPI_METHOD::PUSH) {
+	if (!m_spatial && ((m_DeviceModeCurrent == MODE_WASAPI_SHARED && !m_bIsBitstream) || m_WasapiMethod == WASAPI_METHOD::PUSH)) {
 		hr = m_pAudioClient->GetCurrentPadding(&numFramesPadding);
 		if (FAILED(hr)) {
 #if defined(DEBUG_OR_LOG) && DBGLOG_LEVEL > 1
@@ -3026,17 +3179,26 @@ HRESULT CMpcAudioRenderer::RenderWasapiBuffer()
 		}
 	}
 
-	const UINT32 numFramesAvailable = m_nFramesInBuffer - numFramesPadding;
-	const UINT32 nAvailableBytes = numFramesAvailable * m_pWaveFormatExOutput->nBlockAlign;
-
+	UINT32 numFramesAvailable = m_nFramesInBuffer - numFramesPadding;
 	BYTE* pData = nullptr;
-	hr = m_pRenderClient->GetBuffer(numFramesAvailable, &pData);
+	if (m_spatial) {
+		if (!m_bIsAudioClientStarted) return S_OK;
+		hr = m_spatial->Begin(numFramesAvailable, pData);
+	} else {
+		hr = m_pRenderClient->GetBuffer(numFramesAvailable, &pData);
+	}
+	const UINT32 nAvailableBytes = numFramesAvailable * m_pWaveFormatExOutput->nBlockAlign;
+	if (FAILED(hr) && m_spatial) {
+		m_spatialStatus = hr; m_spatialFailed = true; SetReinitializeAudioDevice();
+	}
 	if (FAILED(hr)) {
 #if defined(DEBUG_OR_LOG) && DBGLOG_LEVEL > 1
 		DLog(L"CMpcAudioRenderer::RenderWasapiBuffer() - GetBuffer() failed with size %u (0x%08x)", numFramesAvailable, hr);
 #endif
 		return hr;
 	}
+
+	if (!numFramesAvailable) return m_spatial ? m_spatial->End(AUDCLNT_BUFFERFLAGS_SILENT) : m_pRenderClient->ReleaseBuffer(0, 0);
 
 	const size_t nWasapiQueueSize = WasapiQueueSize();
 	DWORD dwFlags = 0;
@@ -3137,7 +3299,10 @@ HRESULT CMpcAudioRenderer::RenderWasapiBuffer()
 		}
 	}
 
-	hr = m_pRenderClient->ReleaseBuffer(numFramesAvailable, dwFlags);
+	hr = m_spatial ? m_spatial->End(dwFlags) : m_pRenderClient->ReleaseBuffer(numFramesAvailable, dwFlags);
+	if (FAILED(hr) && m_spatial) {
+		m_spatialStatus = hr; m_spatialFailed = true; SetReinitializeAudioDevice();
+	}
 #if defined(DEBUG_OR_LOG) && DBGLOG_LEVEL > 1
 	if (FAILED(hr)) {
 		DLog(L"CMpcAudioRenderer::RenderWasapiBuffer() - ReleaseBuffer() failed with size %u (0x%08x)", numFramesAvailable, hr);
@@ -3153,7 +3318,7 @@ void CMpcAudioRenderer::CheckBufferStatus()
 		return;
 	}
 
-	if (!m_pRenderClient || !m_bIsAudioClientStarted || WasapiQueueSize() < m_nMaxWasapiQueueSize) {
+	if (!HasRenderClient() || !m_bIsAudioClientStarted || WasapiQueueSize() < m_nMaxWasapiQueueSize) {
 		SetEvent(m_hRendererNeedMoreData);
 	} else {
 		ResetEvent(m_hRendererNeedMoreData);
@@ -3320,14 +3485,15 @@ void CMpcAudioRenderer::ReleaseDevice()
 {
 	DLog(L"CMpcAudioRenderer::ReleaseDevice()");
 
+	PauseRendererThread();
 	CAutoLock cRenderLock(&m_csRender);
 
 	m_bReleased = true;
 
-	PauseRendererThread();
 	m_bIsAudioClientStarted = false;
 
 	m_pSyncClock->UnSlave();
+	CloseSpatial();
 
 	if (IsExclusiveMode()) {
 		SAFE_RELEASE(m_pRenderClient);
