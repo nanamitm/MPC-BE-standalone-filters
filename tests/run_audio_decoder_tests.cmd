@@ -22,6 +22,16 @@ for %%C in (1 2 13) do for %%S in (0 1) do (
 if errorlevel 1 exit /b 1
 "%AUDIO_TEST_OUT%\graph.exe" "%AUDIO_TEST_LIBS%\MpaDecFilter-fork.ax" 24 1 0 "%AUDIO_TEST_LIBS%\AudioSwitcher-fork.ax"
 if errorlevel 1 exit /b 1
+"%AUDIO_TEST_OUT%\graph.exe" "%AUDIO_TEST_LIBS%\MpaDecFilter-fork.ax" 97 0
+if errorlevel 1 exit /b 1
+"%AUDIO_TEST_OUT%\graph.exe" "%AUDIO_TEST_LIBS%\MpaDecFilter-fork.ax" 98 0
+if errorlevel 1 exit /b 1
+"%AUDIO_TEST_OUT%\graph.exe" "%AUDIO_TEST_LIBS%\MpaDecFilter-fork.ax" 98 0 0 "%AUDIO_TEST_LIBS%\AudioSwitcher-fork.ax"
+if errorlevel 1 exit /b 1
+"%AUDIO_TEST_OUT%\graph.exe" "%AUDIO_TEST_LIBS%\MpaDecFilter-fork.ax" 99 0
+if errorlevel 1 exit /b 1
+"%AUDIO_TEST_OUT%\graph.exe" "%AUDIO_TEST_LIBS%\MpaDecFilter-fork.ax" 99 0 0 "%AUDIO_TEST_LIBS%\AudioSwitcher-fork.ax"
+if errorlevel 1 exit /b 1
 rem Optional real endpoint test: all samples are silent; no filter registration.
 if /i "%~2"=="endpoint" (
   "%AUDIO_TEST_OUT%\graph.exe" "%AUDIO_TEST_LIBS%\MpaDecFilter-fork.ax" 13 1 0 "%AUDIO_TEST_LIBS%\AudioSwitcher-fork.ax" "%AUDIO_TEST_LIBS%\MpcAudioRenderer-fork.ax"

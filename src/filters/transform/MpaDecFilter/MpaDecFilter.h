@@ -22,6 +22,8 @@
 #pragma once
 
 #include <stdint.h>
+#include <atomic>
+#include <IAudioDualMono.h>
 #include "filters/filters/FilterInterfacesImpl.h"
 #include "AudioTools/SampleFormat.h"
 #include "../DeCSSFilter/DeCSSFilter.h"
@@ -52,6 +54,8 @@ struct ps2_state_t {
 class __declspec(uuid("E0455945-14D5-4CF2-9087-ACB62983F871"))
 	CMpaDecFilter
 	: public CTransformFilter
+	, public ILAVAudioDualMono
+	, public IAMStreamSelect
 	, public IMpaDecFilter
 	, public CExFilterConfigImpl
 	, public ISpecifyPropertyPages2
@@ -59,6 +63,11 @@ class __declspec(uuid("E0455945-14D5-4CF2-9087-ACB62983F871"))
 	GUID            m_Subtype = GUID_NULL;
 	AVCodecID       m_CodecId;
 	SampleFormat    m_InternalSampleFormat = SAMPLE_FMT_NONE;
+
+	// UI/menu callers never take m_csReceive or touch the codec context.
+	// Decode reads the latest selection immediately before sending each packet.
+	std::atomic<DWORD> m_dualMonoMode{DualMono_Main};
+	std::atomic<bool> m_dualMonoCapable{false};
 
 	// settings
 	CCritSec        m_csProps;
@@ -200,6 +209,13 @@ class __declspec(uuid("E0455945-14D5-4CF2-9087-ACB62983F871"))
 public:
 	CMpaDecFilter(LPUNKNOWN lpunk, HRESULT* phr);
 	virtual ~CMpaDecFilter();
+
+	STDMETHODIMP_(DWORD) GetDualMonoMode() override;
+	STDMETHODIMP SetDualMonoMode(DWORD mode) override;
+	STDMETHODIMP Count(DWORD* count) override;
+	STDMETHODIMP Enable(long index, DWORD flags) override;
+	STDMETHODIMP Info(long index, AM_MEDIA_TYPE** type, DWORD* flags, LCID* lcid,
+		DWORD* group, WCHAR** name, IUnknown** object, IUnknown** unknown) override;
 
 	DECLARE_IUNKNOWN
 	STDMETHODIMP NonDelegatingQueryInterface(REFIID riid, void** ppv);

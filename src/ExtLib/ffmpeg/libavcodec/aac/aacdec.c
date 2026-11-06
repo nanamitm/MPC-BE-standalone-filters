@@ -2251,7 +2251,8 @@ static int parse_adts_frame_header(AACDecContext *ac, GetBitContext *gb)
              * WITHOUT specifying PCE.
              *  thus, set dual mono as default.
              */
-            if (ac->dmono_mode && ac->oc[0].status == OC_NONE) {
+            // Explicit Both still needs the Japanese no-PCE SCE+SCE mapping.
+            if ((ac->dmono_mode || ac->force_dmono_mode == 0) && (ac->oc[0].status == OC_NONE || ac->oc[0].m4ac.chan_config != 0)) {
                 layout_map_tags = 2;
                 layout_map[0][0] = layout_map[1][0] = TYPE_SCE;
                 layout_map[0][2] = layout_map[1][2] = AAC_CHANNEL_FRONT;
@@ -2534,6 +2535,21 @@ static int decode_frame_ga(AVCodecContext *avctx, AACDecContext *ac,
     return 0;
 }
 
+/* Shared by ADTS/raw AAC and LATM, which bypasses aac_decode_frame(). */
+static void aac_update_dual_mono_mode(AACDecContext *ac, const AVPacket *avpkt)
+{
+    size_t jp_dualmono_size;
+    const uint8_t *jp_dualmono   = av_packet_get_side_data(avpkt,
+                                       AV_PKT_DATA_JP_DUALMONO,
+                                       &jp_dualmono_size);
+
+    ac->dmono_mode = 0;
+    if (jp_dualmono && jp_dualmono_size > 0)
+        ac->dmono_mode =  1 + *jp_dualmono;
+    if (ac->force_dmono_mode >= 0)
+        ac->dmono_mode = ac->force_dmono_mode;
+}
+
 static int aac_decode_frame_int(AVCodecContext *avctx, AVFrame *frame,
                                 int *got_frame_ptr, GetBitContext *gb,
                                 const AVPacket *avpkt)
@@ -2604,10 +2620,6 @@ static int aac_decode_frame(AVCodecContext *avctx, AVFrame *frame,
     const uint8_t *new_extradata = av_packet_get_side_data(avpkt,
                                        AV_PKT_DATA_NEW_EXTRADATA,
                                        &new_extradata_size);
-    size_t jp_dualmono_size;
-    const uint8_t *jp_dualmono   = av_packet_get_side_data(avpkt,
-                                       AV_PKT_DATA_JP_DUALMONO,
-                                       &jp_dualmono_size);
 
     if (new_extradata) {
         /* discard previous configuration */
@@ -2620,11 +2632,7 @@ static int aac_decode_frame(AVCodecContext *avctx, AVFrame *frame,
         }
     }
 
-    ac->dmono_mode = 0;
-    if (jp_dualmono && jp_dualmono_size > 0)
-        ac->dmono_mode =  1 + *jp_dualmono;
-    if (ac->force_dmono_mode >= 0)
-        ac->dmono_mode = ac->force_dmono_mode;
+    aac_update_dual_mono_mode(ac, avpkt);
 
     if (INT_MAX / 8 <= buf_size)
         return AVERROR_INVALIDDATA;
@@ -2654,6 +2662,8 @@ static int aac_decode_frame(AVCodecContext *avctx, AVFrame *frame,
     return buf_size > buf_offset ? buf_consumed : buf_size;
 }
 
+// LATM uses the same AAC context and runtime dual-mono options.
+static const AVClass decoder_class;
 #if CONFIG_AAC_LATM_DECODER
 #include "aacdec_latm.h"
 #endif

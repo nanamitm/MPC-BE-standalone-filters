@@ -55,6 +55,8 @@ bool CMpaDecSettingsWnd::OnConnect(const std::list<CComQIPtr<IUnknown, &IID_IUnk
 	m_outfmt_i32   = m_pMDF->GetOutputFormat(SF_PCM32);
 	m_outfmt_flt   = m_pMDF->GetOutputFormat(SF_FLOAT);
 #endif
+	m_pDualMono = m_pMDF;
+	if (m_pDualMono) m_dualMonoMode = m_pDualMono->GetDualMonoMode();
 	m_av_sync      = m_pMDF->GetAVSyncCorrection();
 	m_drc          = m_pMDF->GetDynamicRangeControl();
 	m_spdif_ac3    = m_pMDF->GetSPDIF(IMpaDecFilter::ac3);
@@ -69,6 +71,7 @@ bool CMpaDecSettingsWnd::OnConnect(const std::list<CComQIPtr<IUnknown, &IID_IUnk
 
 void CMpaDecSettingsWnd::OnDisconnect()
 {
+	m_pDualMono.Release();
 	m_pMDF.Release();
 }
 
@@ -126,6 +129,16 @@ bool CMpaDecSettingsWnd::OnActivate()
 	m_drc_check.SetCheck(m_drc);
 	p.y += h25;
 
+	m_dualMonoLabel.Create(L"ARIB Dual Mono", WS_VISIBLE | WS_CHILD, CRect(p, CSize(ScaleX(230), h20)), this);
+	p.y += h20;
+	m_dualMonoCombo.Create(dwStyle | CBS_DROPDOWNLIST | WS_VSCROLL, CRect(p, CSize(ScaleX(230), ScaleY(100))), this, IDC_PP_DUAL_MONO);
+	m_dualMonoCombo.AddString(L"\u4e3b\u97f3\u58f0 + \u526f\u97f3\u58f0 (L/R)");
+	m_dualMonoCombo.AddString(L"\u4e3b\u97f3\u58f0");
+	m_dualMonoCombo.AddString(L"\u526f\u97f3\u58f0");
+	m_dualMonoCombo.SetCurSel(m_dualMonoMode);
+	m_dualMonoCombo.EnableWindow(m_pDualMono != nullptr);
+	p.y += h20;
+
 	m_spdif_group.Create(ResStr(IDS_MPADEC_SPDIF), WS_VISIBLE | WS_CHILD | BS_GROUPBOX, CRect(p + CPoint(-5, 0), CSize(ScaleX(236), h20 + h20 * 4)), this, (UINT)IDC_STATIC);
 	p.y += h20;
 	m_spdif_ac3_check.Create(L"AC-3", dwStyle | BS_AUTOCHECKBOX, CRect(p, CSize(ScaleX(50), m_fontheight)), this, IDC_PP_CHECK_SPDIF_AC3);
@@ -171,6 +184,8 @@ bool CMpaDecSettingsWnd::OnActivate()
 
 void CMpaDecSettingsWnd::OnDeactivate()
 {
+	const int selection = m_dualMonoCombo.GetCurSel();
+	if (selection >= 0) m_dualMonoMode = selection;
 #ifdef REGISTER_FILTER
 	m_outfmt_i16   = !!m_outfmt_i16_check.GetCheck();
 	m_outfmt_i24   = !!m_outfmt_i24_check.GetCheck();
@@ -198,6 +213,7 @@ bool CMpaDecSettingsWnd::OnApply()
 		m_pMDF->SetOutputFormat(SF_PCM32, m_outfmt_i32);
 		m_pMDF->SetOutputFormat(SF_FLOAT, m_outfmt_flt);
 #endif
+		if (m_pDualMono) m_pDualMono->SetDualMonoMode(m_dualMonoMode);
 		m_pMDF->SetAVSyncCorrection(m_av_sync);
 		m_pMDF->SetDynamicRangeControl(m_drc);
 		m_pMDF->SetSPDIF(IMpaDecFilter::ac3, m_spdif_ac3);

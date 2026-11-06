@@ -335,6 +335,7 @@ CMpaDecFilter::CMpaDecFilter(LPUNKNOWN lpunk, HRESULT* phr)
 	CRegKey key;
 	if (ERROR_SUCCESS == key.Open(HKEY_CURRENT_USER, OPT_REGKEY_MpaDec, KEY_READ)) {
 		DWORD dw;
+		if (ERROR_SUCCESS == key.QueryDWORDValue(L"DualMonoMode", dw) && dw <= DualMono_Sub) m_dualMonoMode.store(dw);
 		if (ERROR_SUCCESS == key.QueryDWORDValue(OPTION_SFormat_i16, dw)) {
 			m_bSampleFmt[SF_PCM16] = !!dw;
 		}
@@ -397,6 +398,8 @@ CMpaDecFilter::~CMpaDecFilter()
 STDMETHODIMP CMpaDecFilter::NonDelegatingQueryInterface(REFIID riid, void** ppv)
 {
 	return
+		QI(ILAVAudioDualMono)
+		QI(IAMStreamSelect)
 		QI(IMpaDecFilter)
 		QI(IExFilterConfig)
 		QI(ISpecifyPropertyPages)
@@ -2352,6 +2355,7 @@ HRESULT CMpaDecFilter::SetMediaType(PIN_DIRECTION dir, const CMediaType *pmt)
 		}
 
 		enum AVCodecID nCodecId = FindCodec(pmt->subtype);
+		m_dualMonoCapable.store(nCodecId == AV_CODEC_ID_AAC || nCodecId == AV_CODEC_ID_AAC_LATM);
 		if (nCodecId != AV_CODEC_ID_NONE) {
 			if (m_FFAudioDec.Init(nCodecId, &m_pInput->CurrentMediaType())) {
 				m_FFAudioDec.SetDRC(GetDynamicRangeControl());
@@ -2385,6 +2389,7 @@ HRESULT CMpaDecFilter::BreakConnect(PIN_DIRECTION dir)
 
 	if (dir == PINDIR_INPUT) {
 		m_FFAudioDec.StreamFinish();
+		m_dualMonoCapable.store(false);
 		m_bNeedBitstreamCheck = TRUE;
 	}
 
@@ -2486,6 +2491,59 @@ STDMETHODIMP_(bool) CMpaDecFilter::GetSPDIF(enctype et)
 	return m_bSPDIF[et];
 }
 
+STDMETHODIMP_(DWORD) CMpaDecFilter::GetDualMonoMode()
+{
+	return m_dualMonoMode.load();
+}
+
+STDMETHODIMP CMpaDecFilter::SetDualMonoMode(DWORD mode)
+{
+	if (mode > DualMono_Sub) return E_INVALIDARG;
+	m_dualMonoMode.store(mode);
+	return SaveSettings(); // settings lock only; never wait for Receive/Deliver
+}
+
+static const WCHAR* const kDualMonoNames[] = {
+	L"\u4e3b\u97f3\u58f0 + \u526f\u97f3\u58f0",
+	L"\u4e3b\u97f3\u58f0", L"\u526f\u97f3\u58f0"
+};
+
+STDMETHODIMP CMpaDecFilter::Count(DWORD* count)
+{
+	if (!count) return E_POINTER;
+	*count = m_dualMonoCapable.load() ? 3 : 0;
+	return S_OK;
+}
+
+STDMETHODIMP CMpaDecFilter::Enable(long index, DWORD flags)
+{
+	if (!m_dualMonoCapable.load()) return E_NOTIMPL;
+	if (index < 0 || index > 2 || !(flags & AMSTREAMSELECTENABLE_ENABLE)) return S_FALSE;
+	return SetDualMonoMode(static_cast<DWORD>(index));
+}
+
+STDMETHODIMP CMpaDecFilter::Info(long index, AM_MEDIA_TYPE** type, DWORD* flags,
+	LCID* lcid, DWORD* group, WCHAR** name, IUnknown** object, IUnknown** unknown)
+{
+	if (type) *type = nullptr;
+	if (name) *name = nullptr;
+	if (object) *object = nullptr;
+	if (unknown) *unknown = nullptr;
+	if (!m_dualMonoCapable.load()) return E_NOTIMPL;
+	if (index < 0 || index > 2) return S_FALSE;
+	if (lcid) *lcid = 0;
+	if (group) *group = 0;
+	if (flags) *flags = static_cast<DWORD>(index) == m_dualMonoMode.load()
+		? AMSTREAMSELECTINFO_ENABLED | AMSTREAMSELECTINFO_EXCLUSIVE : 0;
+	if (name) {
+		const size_t bytes = (wcslen(kDualMonoNames[index]) + 1) * sizeof(WCHAR);
+		*name = static_cast<WCHAR*>(CoTaskMemAlloc(bytes));
+		if (!*name) return E_OUTOFMEMORY;
+		memcpy(*name, kDualMonoNames[index], bytes);
+	}
+	return S_OK;
+}
+
 STDMETHODIMP CMpaDecFilter::SaveSettings()
 {
 	CAutoLock cAutoLock(&m_csProps);
@@ -2499,6 +2557,7 @@ STDMETHODIMP CMpaDecFilter::SaveSettings()
 		key.SetDWORDValue(OPTION_SFormat_flt, m_bSampleFmt[SF_FLOAT]);
 		key.SetDWORDValue(OPTION_AVSYNC, m_bAVSync);
 		key.SetDWORDValue(OPTION_DRC, m_bDRC);
+		key.SetDWORDValue(L"DualMonoMode", m_dualMonoMode.load());
 		key.SetDWORDValue(OPTION_SPDIF_ac3, m_bSPDIF[ac3]);
 		key.SetDWORDValue(OPTION_SPDIF_eac3, m_bSPDIF[eac3]);
 		key.SetDWORDValue(OPTION_SPDIF_truehd, m_bSPDIF[truehd]);

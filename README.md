@@ -172,6 +172,33 @@ unknown-speaker rejection, 44.1-to-48 kHz resampling and end-of-stream draining.
 Real broadcast playback, perceived direction, A/V sync, application-specific
 filter selection and long playback still need validation.
 
+### ARIB dual mono / bilingual audio
+
+AAC and AAC LATM support the same `ILAVAudioDualMono` contract as
+`arib-splitter` (`571CC80C-1DCF-41F2-94EF-546D071EC039`), declared in
+`include/IAudioDualMono.h`. Choose Both (main left, sub right), Main, or Sub in
+the decoder property page or a player's `IAMStreamSelect` filter menu. Main is
+the default; the setting is saved as `DualMonoMode` in the decoder's own registry
+key. Main/Sub duplicate the selected single-channel element to both outputs,
+keeping stereo output. Ordinary stereo and 22.2ch retain their channel layouts.
+This is selection inside one AAC stream, separate from selecting audio PIDs.
+
+UI/menu calls publish an atomic selection without taking the receive lock.
+The decoding thread applies the latest mode to each packet, including after
+codec reinitialization. The bundled FFmpeg LATM decoder exposes the same runtime
+AAC options; upstream's LATM decoder had no option class, so setting
+`dual_mono_mode` there alone would have silently failed. LATM also shares the
+per-frame selection update, since it bypasses the ordinary AAC frame wrapper.
+No FFmpeg ABI changes
+are needed. Explicit Both also retains the Japanese ADTS SCE+SCE fallback when
+a stream starts without a program configuration element (PCE). Other codecs and bitstream pass-through are unaffected.
+
+The graph regression tests synthesize nonzero AAC ADTS/LATM dual-mono frames,
+check both selections and ordinary stereo transitions, saved settings, invalid
+arguments, menu calls while delivery is blocked, and property-page choices,
+layout bounds and Apply. Registry changes made by these tests are isolated in a
+temporary test key, leaving normal decoder settings intact.
+
 ## Building
 
 This repository is trimmed to just the source these filters need (FFmpeg,

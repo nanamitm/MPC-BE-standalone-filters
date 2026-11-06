@@ -513,6 +513,10 @@ void CFFAudioDecoder::SetStereoDownmix(bool bStereoDownmix)
 
 HRESULT CFFAudioDecoder::SendData(BYTE* p, int size, int* out_size)
 {
+	if (m_pAVCtx && m_pAVCtx->priv_data &&
+		(m_pAVCtx->codec_id == AV_CODEC_ID_AAC || m_pAVCtx->codec_id == AV_CODEC_ID_AAC_LATM)) {
+		av_opt_set_int(m_pAVCtx->priv_data, "dual_mono_mode", m_pFilter->GetDualMonoMode(), 0);
+	}
 	HRESULT hr = E_FAIL;
 
 	if (out_size) {

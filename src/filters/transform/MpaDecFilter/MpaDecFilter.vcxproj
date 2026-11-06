@@ -107,6 +107,7 @@
     <ClInclude Include="FFAudioDecoder.h" />
     <ClInclude Include="FloatingAverage.h" />
     <ClInclude Include="IMpaDecFilter.h" />
+    <ClInclude Include="$(SolutionDir)include\IAudioDualMono.h" />
     <ClInclude Include="MpaDecFilter.h" />
     <ClInclude Include="MpaDecFilterSettingsWnd.h" />
     <ClInclude Include="PackerMAT.h" />

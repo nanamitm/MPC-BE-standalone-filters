@@ -298,6 +298,8 @@ static int latm_decode_frame(AVCodecContext *avctx, AVFrame *out,
         return AVERROR_INVALIDDATA;
     }
 
+    aac_update_dual_mono_mode(&latmctx->aac_ctx, avpkt);
+
     switch (latmctx->aac_ctx.oc[1].m4ac.object_type) {
     case AOT_ER_AAC_LC:
     case AOT_ER_AAC_LTP:
@@ -336,6 +338,7 @@ const FFCodec ff_aac_latm_decoder = {
     CODEC_LONG_NAME("AAC LATM (Advanced Audio Coding LATM syntax)"),
     .p.type          = AVMEDIA_TYPE_AUDIO,
     .p.id            = AV_CODEC_ID_AAC_LATM,
+    .p.priv_class    = &decoder_class,
     .priv_data_size  = sizeof(struct LATMContext),
     .init            = latm_decode_init,
     .close           = decode_close,

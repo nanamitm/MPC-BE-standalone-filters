@@ -29,6 +29,10 @@ class __declspec(uuid("ADE56F7D-72F1-47B3-ABDF-8A6CF050423E"))
 	CMpaDecSettingsWnd : public CInternalPropertyPageWnd
 {
 	CComQIPtr<IMpaDecFilter> m_pMDF;
+	CComQIPtr<ILAVAudioDualMono> m_pDualMono;
+	CStatic m_dualMonoLabel;
+	CComboBox m_dualMonoCombo;
+	DWORD m_dualMonoMode = DualMono_Main;
 
 #ifdef REGISTER_FILTER
 	bool  m_outfmt_i16;
@@ -52,6 +56,7 @@ class __declspec(uuid("ADE56F7D-72F1-47B3-ABDF-8A6CF050423E"))
 	bool m_spdif_ac3enc;
 
 	enum {
+		IDC_PP_DUAL_MONO = 9999,
 		IDC_PP_CHECK_I16 = 10000,
 		IDC_PP_CHECK_I24,
 		IDC_PP_CHECK_I32,
@@ -92,7 +97,7 @@ public:
 	bool OnApply();
 
 	static LPCWSTR GetWindowTitle() { return MAKEINTRESOURCEW(IDS_FILTER_SETTINGS_CAPTION); }
-	static CSize GetWindowSize()    { return CSize(240, 248); }
+	static CSize GetWindowSize()    { return CSize(250, 340); }
 
 	DECLARE_MESSAGE_MAP()
 
