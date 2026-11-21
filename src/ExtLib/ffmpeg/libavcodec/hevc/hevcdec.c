@@ -792,8 +792,6 @@ static int set_sps(HEVCContext *s, HEVCLayerContext *l, const HEVCSPS *sps)
     if (!sps)
         return 0;
 
-    av_refstruct_unref(&s->vps);
-
     ret = pic_arrays_init(l, sps);
     if (ret < 0)
         goto fail;
@@ -4193,6 +4191,7 @@ static int hevc_frame_start(HEVCContext *s, HEVCLayerContext *l,
     ret = export_stream_params_from_sei(s);
     if (ret < 0)
         return ret;
+    s->sei.common.alternative_transfer.present = 0;
 
     ret = ff_hevc_set_new_ref(s, l, s->poc);
     if (ret < 0)
@@ -4462,7 +4461,7 @@ static int decode_slice(HEVCContext *s, unsigned nal_idx, GetBitContext *gb)
         ret = hevc_frame_start(s, l, nal_idx);
         if (ret < 0)
             return ret;
-    } else if (!l->cur_frame) {
+    } else if (!l->cur_frame || l->cur_frame != s->cur_frame) {
         av_log(s->avctx, AV_LOG_ERROR, "First slice in a frame missing.\n");
         return AVERROR_INVALIDDATA;
     }

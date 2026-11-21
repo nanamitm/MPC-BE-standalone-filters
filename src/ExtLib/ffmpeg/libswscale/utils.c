@@ -512,7 +512,6 @@ static av_cold int initFilter(int16_t **outFilter, int32_t **filterPos,
         ret = RETCODE_USE_CASCADE;
         goto fail;
     }
-    *outFilterSize = filterSize;
 
     if (flags & SWS_PRINT_INFO)
         av_log(NULL, AV_LOG_VERBOSE,
@@ -576,6 +575,8 @@ static av_cold int initFilter(int16_t **outFilter, int32_t **filterPos,
             }
         }
     }
+
+    *outFilterSize = FFMIN(filterSize, FFALIGN(srcW, filterAlign));
 
     // Note the +1 is for the MMX scaler which reads over the end
     /* align at 16 for AltiVec (needed by hScale_altivec_real) */
@@ -1396,6 +1397,10 @@ av_cold int ff_sws_init_single_context(SwsContext *sws, SwsFilter *srcFilter,
         dstFormat != AV_PIX_FMT_RGB48BE &&
         dstFormat != AV_PIX_FMT_BGR48LE &&
         dstFormat != AV_PIX_FMT_BGR48BE &&
+        dstFormat != AV_PIX_FMT_RGBF32LE &&
+        dstFormat != AV_PIX_FMT_RGBF32BE &&
+        dstFormat != AV_PIX_FMT_RGBAF32LE &&
+        dstFormat != AV_PIX_FMT_RGBAF32BE &&
         dstFormat != AV_PIX_FMT_RGBA  &&
         dstFormat != AV_PIX_FMT_ARGB  &&
         dstFormat != AV_PIX_FMT_BGRA  &&

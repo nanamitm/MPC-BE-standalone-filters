@@ -201,6 +201,11 @@ temporary test key, leaving normal decoder settings intact.
 
 ## Building
 
+The bundled FFmpeg is synchronized to upstream MPC-BE commit
+`c1165bf62f57ab83ef27bd84594c95ab6b9da4a9` (2026-11-21), version
+`n9.2-dev-1099-ge8574d0b22`, with this fork's AAC dual-mono changes retained.
+The standalone configuration keeps the external dav1d decoder disabled.
+
 This repository is trimmed to just the source these filters need (FFmpeg,
 vvdec, uavs3d, soxr, speex, mfx_dispatch, libbs2b, AudioTools, DSUtil,
 BaseClasses, and the filter base classes) - it's not a full MPC-BE checkout.
